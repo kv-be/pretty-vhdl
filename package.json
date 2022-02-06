@@ -3,17 +3,12 @@
 	"displayName": "VHDL Formatter",
 	"description": "",
 	"version": "1.0.5",
-	"publisher": "Vinrobot",
 	"engines": {
 		"vscode": "^1.25.0"
 	},
 	"categories": [
 		"Formatters"
 	],
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/Vinrobot/vscode-vhdl-formatter.git"
-	},
 	"activationEvents": [
 		"onLanguage:vhdl"
 	],
@@ -169,11 +164,5 @@
 		"@types/node": "^8.10.43",
 		"typescript": "^3.9.7",
 		"vscode": "^1.1.37"
-	},
-	"__metadata": {
-		"id": "c56abff9-52e0-42ae-a416-ae660e196194",
-		"publisherId": "1018f561-883c-41cb-8f4c-30736d91d7b8",
-		"publisherDisplayName": "Vinrobot",
-		"installedTimestamp": 1632662231562
 	}
 }
