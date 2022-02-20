@@ -292,7 +292,7 @@ function fix_closing_brackets(input){
     input = input.replace(/\);{1}([^;^\^\n)]*?\n+\s*port\s*\()/gi, "\r\n);$1") // generic with closing bracket on the same line as last assingment
     input = input.replace(/\){1}([^,^\^\n)]*?\n+\s*port\s+map\s*\()/gi, "\r\n)$1") // generic with closing bracket on the same line as last assingment
     input = input.replace(/(\s*port\s+map[\s\S\n]+?)\);(.*)/gi, "$1\r\n);$2"); // closing port map bracket not on seperate line
-    input = input.replace(/(\s*port\s*\([\s\S\n]+?)\);([^\)]+end)/gi, "$1\r\n);$2"); // force closing port bracket on next line
+    input = input.replace(/(\s*port\s*\([\s\S\n]+?)\);([^\)]+end\s+)/gi, "$1\r\n);$2"); // force closing port bracket on next line
     input = input.replace(/\r\n\s*[\r\n]+(\s*\);.*)/gi, "\r\n$1"); // delete empty line before ); 
     input = input.replace(/\r\n\s*[\r\n]+(\s*\).*)/gi, "\r\n$1"); // delete empyt line before )
     input = input.replace(/\r\n\s*[\r\n]+(\s*port.*)/gi, "\r\n$1"); // delete empty line before port
@@ -312,12 +312,13 @@ function allignOn(arr, object, endpat, toallign) {
     let starts = []
     let ends = []
     let maxs = []
+    let toallignpat = new RegExp(`(?<=^\\s*[\\S]+[\\S\\s]+)${toallign}`)
     for (let k = 0; k < arr.length; k++) {
         if (arr[k].regexStartsWith(new RegExp(object))) {
             start = k;
         }
         if (start > 0){
-            pos = arr[k].indexOf(toallign)
+            pos = arr[k].search(toallignpat)
             if ((pos >= 0) && (pos > max)) {
                 if (max > 0){
                    delta = pos - max;
@@ -338,10 +339,10 @@ function allignOn(arr, object, endpat, toallign) {
     let corr = " "
     for (let s=0; s<starts.length; s++){
         for (let k = starts[s]; k < ends[s]+1; k++) {
-            pos = arr[k].search(toallign)
+            pos = arr[k].search(toallignpat)
             if ((pos >= 0) && (pos < maxs[s])) {
     
-                arr[k] = arr[k].replace(toallign, corr.repeat(maxs[s]-pos)+toallign)
+                arr[k] = arr[k].replace(toallignpat, corr.repeat(maxs[s]-pos)+toallign)
             }     
         }    
     }
@@ -505,7 +506,7 @@ function beautify(input, settings) {
     
     fix_in_allignment(arr);
     
-    (arr, "\\s*ENTITY", "\\s*END", ":");
+    allignOn(arr, "\\s*ENTITY", "\\s*END", ":");
     allignOn(arr, "\\s*ENTITY", "\\s*END", "@@")
 
     allignOn(arr, "\\s*COMPONENT","\\s*END",  ":");
