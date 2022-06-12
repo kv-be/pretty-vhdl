@@ -108,7 +108,12 @@ function EscapeComments(arr) {
         var commentStartIndex = line.indexOf("--");
         if (commentStartIndex >= 0) {
             comments.push(line.substr(commentStartIndex));
-            arr[i] = line.substr(0, commentStartIndex) + ILCommentPrefix + count;
+            if (line.substr(commentStartIndex-1, commentStartIndex) !== " ") {
+                arr[i] = line.substr(0, commentStartIndex) + " "+ILCommentPrefix + count;
+            } 
+            else{
+                arr[i] = line.substr(0, commentStartIndex) + ILCommentPrefix + count;
+            }
             count++;
         }
     }
@@ -696,6 +701,7 @@ function AlignSign_(result, startIndex, endIndex, symbol, mode) {
         if (symbol == ":" && line.regexStartsWith(labelAndKeywordsRegex)) {
             continue;
         }
+        //var regex = new RegExp("([\\s\\w\\\\]|^)" + symbol + "([\\s\\w\\\\]|$)");
         var regex = new RegExp("([\\s\\w\\\\]|^)" + symbol + "([\\s\\w\\\\]|$)");
         if (line.regexCount(regex) > 1) {
             continue;

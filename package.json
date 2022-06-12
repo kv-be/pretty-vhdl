@@ -41,7 +41,6 @@
 		"postinstall": "node ./node_modules/vscode/bin/install && tsc",
 		"compile": "tsc"
 	},
-
 	"package-deps": [],
 	"providedServices": {},
 	"consumedServices": {},
@@ -49,5 +48,8 @@
 		"@types/node": "^8.10.43",
 		"typescript": "^3.9.7",
 		"vscode": "^1.1.37"
+	},
+	"dependencies": {
+		"just-clone": "^5.0.1"
 	}
 }
