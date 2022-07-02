@@ -8,6 +8,7 @@ var ILIndentedReturnPrefix = ILEscape;
 var ILQuote = "⨵";
 var ILSingleQuote = "⦼";
 var ILBackslash = "⨸";
+var ILOthers = "⨹";
 var ILSemicolon = "⨴";
 var FormatMode;
 (function (FormatMode) {
@@ -434,6 +435,7 @@ function beautify(input, settings) {
     var backslashes = escapeText(arr, "\\\\[^\\\\]+\\\\", ILBackslash);
     var quotes = escapeText(arr, '"([^"]+)"', ILQuote);
     var singleQuotes = escapeText(arr, "'[^']'", ILSingleQuote);
+    var others = escapeText(arr, "\(others\\s*=>\\s*.*?\)", ILOthers);
     RemoveLeadingWhitespaces(arr);
     input = arr.join("\r\n");
     if (settings.RemoveComments) {
@@ -532,7 +534,9 @@ function beautify(input, settings) {
     input = replaceEscapedWords(input, singleQuotes, ILSingleQuote);
     input = replaceEscapedComments(input, comments, ILCommentPrefix);
     input = replaceEscapedWords(input, backslashes, ILBackslash);
+    input = replaceEscapedWords(input, others, ILOthers);
     input = input.replace(new RegExp(ILSemicolon, "g"), ";");
+
     input = input.replace(/@@[a-z]+/g, "");
     var escapedTexts = new RegExp("[" + ILBackslash + ILQuote + ILSingleQuote + "]", "g");
     input = input.replace(escapedTexts, "");
