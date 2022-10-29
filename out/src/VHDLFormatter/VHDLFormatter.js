@@ -544,6 +544,7 @@ function beautify(input, settings) {
     var escapedTexts = new RegExp("[" + ILBackslash + ILQuote + ILSingleQuote + "]", "g");
     input = input.replace(escapedTexts, "");
     input = input.replace(/\r\n/g, settings.EndOfLine);
+    input = input.replaceAll(ILOthers, " ") //replace stuffed spaces to align multiline function calls
     if (settings.AddNewLine && !input.endsWith(settings.EndOfLine)) {
         input += settings.EndOfLine;
     }
@@ -812,6 +813,28 @@ function beautifySemicolonBlock(inputs, result, settings, startIndex, parentEndI
     var _a;
     var endIndex = startIndex;
     _a = getSemicolonBlockEndIndex(inputs, settings, startIndex, parentEndIndex), endIndex = _a[0], parentEndIndex = _a[1];
+    var st = -1;
+    if (inputs[startIndex].regexStartsWith(/[a-zA-Z0-9_]+[\s]*\(.*/) && startIndex < endIndex){
+        // in case of a procedure, we take the first bracket to align on
+        st = inputs[startIndex].indexOf("(")
+    }
+    if (( (inputs[startIndex].indexOf("<=") >0)  && startIndex < endIndex)) {
+        // in case of a function call, the bracket after the function name is needed.
+        var r = new RegExp(/[\s\S]+?\s*<=\s*[a-zA-Z0-9_]+\s*\(/)
+        var m = inputs[startIndex].match(r)
+        if (m && m.length){
+            st=m[0].length-1
+        }
+    }
+
+    if (st > 0){
+        var stuf = ILOthers.repeat(st-(settings.Indentation.length-1))
+        //var stuf = String.fromCharCode(65).repeat(st-2)
+        for (var i = startIndex+1; i < endIndex+1; i++) {
+            inputs[i] = stuf + inputs[i]
+        }
+    }
+
     result.push(new FormattedLine(inputs[startIndex], indent));
     if (endIndex != startIndex) {
         var i = beautify3(inputs, result, settings, startIndex + 1, indent + 1, endIndex);
@@ -820,7 +843,7 @@ function beautifySemicolonBlock(inputs, result, settings, startIndex, parentEndI
 }
 exports.beautifySemicolonBlock = beautifySemicolonBlock;
 function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m;
     var i;
     var regexOneLineBlockKeyWords = new RegExp(/(PROCEDURE)[^\w](?!.+[^\w]IS([^\w]|$))/); //match PROCEDURE..; but not PROCEDURE .. IS;
     var regexFunctionMultiLineBlockKeyWords = new RegExp(/(FUNCTION|IMPURE FUNCTION)[^\w](?=.+[^\w]IS([^\w]|$))/); //match FUNCTION .. IS; but not FUNCTION
@@ -844,16 +867,18 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
         "(CONFIGURATION(?!.+;))",
         "BLOCK",
         "UNITS",
-        "\\w+\\s+\\w+\\s+IS\\s+RECORD"
+        "\\w+\\s+\\w+\\s+IS\\s+RECORD",
     ];
-    var blockEndsKeyWords = ["END", ".*\\)\\s*RETURN\\s+[\\w]+;"];
+    var blockEndsKeyWords = ["END", ".*\\)\\s*RETURN\\s+[\\w]+;", "[\\s]*\\)+[\\s]*;"]
     var indentedEndsKeyWords = [ILIndentedReturnPrefix + "RETURN\\s+\\w+;"];
     var blockEndsWithSemicolon = [
         "(WITH\\s+[\\w\\s\\\\]+SELECT)",
         "([\\w\\\\]+[\\s]*<=)",
         "([\\w\\\\]+[\\s]*:=)",
         "FOR\\s+[\\w\\s,]+:\\s*\\w+\\s+USE",
-        "REPORT"
+        "REPORT",
+        "[a-zA-Z0-9_]+[\\s]*\\(.*",
+        "([\\s\\S]+?[\\s]*<=)[\\s]*[a-zA-Z0-9_]+[\\s]*\\(.*"
     ];
     var newLineAfterKeyWordsStr = blockStartsKeyWords.join("|");
     var regexBlockMidKeyWords = blockMidKeyWords.convertToRegexBlockWords();
@@ -926,6 +951,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
             }
             continue;
         }
+
         if (input.regexStartsWith(/FUNCTION[^\w]/)
             && input.regexIndexOf(/[^\w]RETURN[^\w]/) < 0) {
             _j = beautifyPortGenericBlock(inputs, result, settings, i, endIndex, indent, "FUNCTION"), i = _j[0], endIndex = _j[1];

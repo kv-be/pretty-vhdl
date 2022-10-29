@@ -53,8 +53,8 @@ function getEndOfLine() {
     return isValid ? endOfLine : "\n";
 }
 function getIndentation(options) {
-    if (!options.insertSpaces)
-        return "\t";
+    //if (!options.insertSpaces)
+    //    return "\t";
     var tabSize = options.tabSize;
     if (tabSize < 1)
         tabSize = 3;
@@ -63,7 +63,7 @@ function getIndentation(options) {
 function getConfig(options) {
     if (!options)
         options = { insertSpaces: true, tabSize: 3 };
-    var indentation = "   "
+    var indentation = getIndentation(options)
     var endOfLine = getEndOfLine();
     var removeComments = false //getExtSettings(exports.CONFIGURATION_REMOVE_COMMENTS, false);
     var removeReports = false //getExtSettings(exports.CONFIGURATION_REMOVE_REPORTS, false);
