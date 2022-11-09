@@ -869,7 +869,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
         "UNITS",
         "\\w+\\s+\\w+\\s+IS\\s+RECORD",
     ];
-    var blockEndsKeyWords = ["END", ".*\\)\\s*RETURN\\s+[\\w]+;", "[\\s]*\\)+[\\s]*;"]
+    var blockEndsKeyWords = ["END", ".*\\)\\s*RETURN\\s+[\\w]+;"]
     var indentedEndsKeyWords = [ILIndentedReturnPrefix + "RETURN\\s+\\w+;"];
     var blockEndsWithSemicolon = [
         "(WITH\\s+[\\w\\s\\\\]+SELECT)",
@@ -914,7 +914,11 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
             Mode = modeCache;
             continue;
         }
-        if (Mode != FormatMode.EndsWithSemicolon && input.regexStartsWith(regexblockEndsWithSemicolon)) {
+        if (Mode != FormatMode.EndsWithSemicolon && input.regexStartsWith(regexblockEndsWithSemicolon) 
+                       && !(input.regexStartsWith(/port|generic/i))
+                       && !(input.regexStartsWith(newLineAfterKeyWordsStr))
+                       ) {
+        //if (Mode != FormatMode.EndsWithSemicolon && input.regexStartsWith(regexblockEndsWithSemicolon) ) {
             var modeCache = Mode;
             Mode = FormatMode.EndsWithSemicolon;
             _c = beautifySemicolonBlock(inputs, result, settings, i, endIndex, indent), i = _c[0], endIndex = _c[1];
