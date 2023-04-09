@@ -543,12 +543,12 @@ function beautify(input, settings) {
     input = input.replace(/@@[a-z]+/g, "");
     var escapedTexts = new RegExp("[" + ILBackslash + ILQuote + ILSingleQuote + "]", "g");
     input = input.replace(escapedTexts, "");
+    input = fix_begin_end(input)
     input = input.replace(/\r\n/g, settings.EndOfLine);
     input = input.replaceAll(ILOthers, " ") //replace stuffed spaces to align multiline function calls
     if (settings.AddNewLine && !input.endsWith(settings.EndOfLine)) {
         input += settings.EndOfLine;
     }
-    input = fix_begin_end(input)
     input = autoformatOn(input);
     
 
@@ -1079,8 +1079,10 @@ function RemoveExtraNewLines(input) {
 }
 
 function fix_begin_end(input){
-    input = input.replace(/   (-----+ *\r*\n)   (-- begin -*\r*\n)   (-------*)/gi, "$1$2$3");
-    input = input.replace(/   (-----+ *\r*\n)   (-- end -*\r*\n)   (-------*)/gi, "$1$2$3");
+    input = input.replace(/   (-----+ *\r\n)   (-- begin --\r\n)   (-------*)/gi, "$1$2$3");
+    input = input.replace(/   (-----+ *\r\n)   (-- end --\r\n)   (-------*)/gi, "$1$2$3");
+    input = input.replace(/   (-----+ *\r\n)   (-- begin *\r\n)   (-------*)/gi, "$1$2$3");
+    input = input.replace(/   (-----+ *\r\n)   (-- end *\r\n)   (-------*)/gi, "$1$2$3");
     return input
 }
 //# sourceMappingURL=VHDLFormatter.js.map
