@@ -548,7 +548,7 @@ function beautify(input, settings) {
     if (settings.AddNewLine && !input.endsWith(settings.EndOfLine)) {
         input += settings.EndOfLine;
     }
-
+    input = fix_begin_end(input)
     input = autoformatOn(input);
     
 
@@ -1076,5 +1076,11 @@ function RemoveExtraNewLines(input) {
     input = input.replace(/ \r\n/g, '\r\n');
     //input = input.replace(/\r\n\r\n\r\n/g, '\r\n');
     return input;
+}
+
+function fix_begin_end(input){
+    input = input.replace(/   (-----+ *\r*\n)   (-- begin -*\r*\n)   (-------*)/gi, "$1$2$3");
+    input = input.replace(/   (-----+ *\r*\n)   (-- end -*\r*\n)   (-------*)/gi, "$1$2$3");
+    return input
 }
 //# sourceMappingURL=VHDLFormatter.js.map
