@@ -109,10 +109,10 @@ function EscapeComments(arr) {
         var commentStartIndex = line.indexOf("--");
         if (commentStartIndex >= 0) {
             comments.push(line.substr(commentStartIndex));
-            if (line.substr(commentStartIndex-1, commentStartIndex) !== " ") {
-                arr[i] = line.substr(0, commentStartIndex) + " "+ILCommentPrefix + count;
-            } 
-            else{
+            if (line.substr(commentStartIndex - 1, commentStartIndex) !== " ") {
+                arr[i] = line.substr(0, commentStartIndex) + " " + ILCommentPrefix + count;
+            }
+            else {
                 arr[i] = line.substr(0, commentStartIndex) + ILCommentPrefix + count;
             }
             count++;
@@ -280,7 +280,7 @@ var BeautifierSettings = /** @class */ (function () {
     return BeautifierSettings;
 }());
 
-function fix_in_allignment(arr){
+function fix_in_allignment(arr) {
     for (let k = 0; k < arr.length; k++) {
         if (arr[k].regexStartsWith(new RegExp("(.*?)\\s*:\\s*IN \\S+(.*)"))) {
             arr[k] = arr[k].replace(new RegExp("(.*?\\s*:\\s*IN) (\\S+.*)"), "$1  $2"); // : in std_logic => : in  std_logic;
@@ -289,7 +289,7 @@ function fix_in_allignment(arr){
     return arr;
 }
 
-function fix_closing_brackets(input){
+function fix_closing_brackets(input) {
     //input = input.replace(/(\s*generic map)\s*\(\s*(\w*)\s*=>\s*(\w*)/gi, "$1\(\r\n$2 : $3"); // generic with bracket on next line
     input = input.replace(/(\s*generic)\s*\(\s*(\w*)\s*:\s*(\w*)/gi, "$1 \(\r\n$2 : $3"); // generic with bracket on next line
     input = input.replace(/(\s*generic\s+map)\s*\((.+)/gi, "$1\(\r\n$2"); // generic with bracket and assignment on the same line
@@ -310,7 +310,7 @@ function fix_closing_brackets(input){
 
 
 function allignOn(arr, object, endpat, toallign) {
-    let start =0;
+    let start = 0;
     let end = 0;
     let max = 0;
     let pos = 0;
@@ -323,14 +323,14 @@ function allignOn(arr, object, endpat, toallign) {
         if (arr[k].regexStartsWith(new RegExp(object))) {
             start = k;
         }
-        if (start > 0){
+        if (start > 0) {
             pos = arr[k].search(toallignpat)
             if ((pos >= 0) && (pos > max)) {
-                if (max > 0){
-                   delta = pos - max;
+                if (max > 0) {
+                    delta = pos - max;
                 }
                 max = pos;
-            } 
+            }
         }
         if (arr[k].regexStartsWith(endpat) && (start > 0)) {
             end = k;
@@ -343,19 +343,19 @@ function allignOn(arr, object, endpat, toallign) {
         }
     }
     let corr = " "
-    for (let s=0; s<starts.length; s++){
-        for (let k = starts[s]; k < ends[s]+1; k++) {
+    for (let s = 0; s < starts.length; s++) {
+        for (let k = starts[s]; k < ends[s] + 1; k++) {
             pos = arr[k].search(toallignpat)
             if ((pos >= 0) && (pos < maxs[s])) {
-    
-                arr[k] = arr[k].replace(toallignpat, corr.repeat(maxs[s]-pos)+toallign)
-            }     
-        }    
+
+                arr[k] = arr[k].replace(toallignpat, corr.repeat(maxs[s] - pos) + toallign)
+            }
+        }
     }
 }
 
-function fix_architecture(arr){
-    let start =0;
+function fix_architecture(arr) {
+    let start = 0;
     let begins = 0
     for (let k = 0; k < arr.length; k++) {
         if ((arr[k].regexStartsWith(/\s*begin/gi)) && (begins == 0)) {
@@ -373,7 +373,7 @@ function fix_architecture(arr){
         if (arr[k].regexStartsWith(/\s*architecture/gi)) {
             start = k;
         }
-}   
+    }
 }
 
 function autoformatOff(arr) {
@@ -383,13 +383,13 @@ function autoformatOff(arr) {
         if (arr[k].regexStartsWith(new RegExp("^\\s*--autoformat_on"))) {
             replace = 0;
         }
-        if (replace > 0){
-            if (k == replace+1){
-               offset = arr[k].search(/\S/)
-               arr[k] = arr[k].replace(/(\s*)(\S+)/, "$1--$2")
+        if (replace > 0) {
+            if (k == replace + 1) {
+                offset = arr[k].search(/\S/)
+                arr[k] = arr[k].replace(/(\s*)(\S+)/, "$1--$2")
             }
             else {
-                arr[k] = arr[k].replace(new RegExp("^(\\s{"+offset+"})"), "$1--")                
+                arr[k] = arr[k].replace(new RegExp("^(\\s{" + offset + "})"), "$1--")
             }
         }
         if (arr[k].regexStartsWith(new RegExp("^\\s*--autoformat_off"))) {
@@ -407,14 +407,15 @@ function autoformatOn(text) {
         if (arr[k].regexStartsWith(new RegExp("^\\s*--autoformat_on"))) {
             replace = 0;
         }
-        if (replace > 0){
-            if (k == replace+1){
+        if (replace > 0) {
+            if (k == replace + 1) {
                 offset = arr[k].search(/\S/)
                 arr[k] = arr[k].replace(/^(\s*)--/, "$1")
-             }
-             else {
-                arr[k] = arr[k].replace(new RegExp("^(\\s{"+offset+"})--"), "$1")                
-             }        }
+            }
+            else {
+                arr[k] = arr[k].replace(new RegExp("^(\\s{" + offset + "})--"), "$1")
+            }
+        }
         if (arr[k].regexStartsWith(new RegExp("^\\s*--autoformat_off"))) {
             replace = k;
         }
@@ -493,19 +494,19 @@ function beautify(input, settings) {
     input = input.replace(/(\s+port\s+map)\s*([^\(]*)\n\s*\(/gi, "$1 \($2"); // port with bracket on next line
     input = input.replace(/(\s+port)\s*([^\(]*)\r\n\s*\(/gi, "$1 \($2"); // port with bracket on next line
 
-    input = input.replace(/(.*;)(.*;)/gi,"$1\r\n$2"); // one executable statement per line
+    input = input.replace(/(.*;)(.*;)/gi, "$1\r\n$2"); // one executable statement per line
     input = input.replace(/(\s*signal\s+\w+\s*),(\s*\w+\s*):(.*)/gi, "$1 : $3\r\nsignal $2 : $3"); // 2 signals defined on the same line
     input = input.replace(/(\s*variable\s+\w+\s*),(\s*\w+\s*):(.*)/gi, "$1 : $3\r\nvariable $2 : $3"); // 2 signals defined on the same line
     //input = input.replace(/(\s+G_\S+\s+:+\s*[0-9a-zA-Z()_ +-/*']+)\);([^\(]*)/gi, "$1\r\n);$2"); //generic with closing bracket on last line
     //input = input.replace(/(\s+G_\S+\s+=>+\s*[0-9a-zA-Z()_ +-/*']+)\)([^\(]*)/gi, "$1\r\n)$2"); //generic MAP with closing bracket on last line
     //input = input.replace(/(\s+\S+\s+=>+\s*[0-9a-zA-Z()_ +-/*']+)\);([^\(]*)/gi, "$1\r\n);$2"); //generic MAP with closing bracket on last line
     //input = input.replace(/(.*):\s*in (.*)\r\n/g, "$1: in  $2\r\n"); // : in std_logic => : in  std_logic;
-    input= fix_closing_brackets(input);
+    input = fix_closing_brackets(input);
 
 
     arr = input.split("\r\n");
 
-    
+
     var result = [];
     beautify3(arr, result, settings, 0, 0);
     var alignSettings = settings.SignAlignSettings;
@@ -513,14 +514,14 @@ function beautify(input, settings) {
         AlignSigns(result, 0, result.length - 1, alignSettings.mode);
     }
     arr = FormattedLineToString(result, settings.Indentation);
-    
+
     fix_in_allignment(arr);
-    
+
     allignOn(arr, "\\s*ENTITY", "\\s*END", ":");
     allignOn(arr, "\\s*ENTITY", "\\s*END", "@@")
 
-    allignOn(arr, "\\s*COMPONENT","\\s*END",  ":");
-    allignOn(arr, "\\s*COMPONENT","\\s*END",  "@@")
+    allignOn(arr, "\\s*COMPONENT", "\\s*END", ":");
+    allignOn(arr, "\\s*COMPONENT", "\\s*END", "@@")
 
     allignOn(arr, "\\s*GENERIC\\s*MAP", "\\s*\\)\s*;", "=>");
     allignOn(arr, "\\s*GENERIC\\s*MAP", "\\s*\\)\s*;", "@@");
@@ -545,12 +546,11 @@ function beautify(input, settings) {
     input = input.replace(escapedTexts, "");
     input = fix_begin_end(input)
     input = input.replace(/\r\n/g, settings.EndOfLine);
-    input = input.replaceAll(ILOthers, " ") //replace stuffed spaces to align multiline function calls
     if (settings.AddNewLine && !input.endsWith(settings.EndOfLine)) {
         input += settings.EndOfLine;
     }
     input = autoformatOn(input);
-    
+
 
     return input;
 }
@@ -722,7 +722,7 @@ function AlignSign_(result, startIndex, endIndex, symbol, mode) {
         else if ((mode != "local" && !line.startsWith(ILCommentPrefix) && line.length != 0)
             || (mode == "local")) {
             if (startLine < i - 1) // if cannot find the symbol, a block of symbols ends
-             {
+            {
                 AlignSign(result, startLine, i - 1, symbol, maxSymbolIndex, symbolIndices);
             }
             maxSymbolIndex = -1;
@@ -731,7 +731,7 @@ function AlignSign_(result, startIndex, endIndex, symbol, mode) {
         }
     }
     if (startLine < endIndex) // if cannot find the symbol, a block of symbols ends
-     {
+    {
         AlignSign(result, startLine, endIndex, symbol, maxSymbolIndex, symbolIndices);
     }
 }
@@ -813,28 +813,6 @@ function beautifySemicolonBlock(inputs, result, settings, startIndex, parentEndI
     var _a;
     var endIndex = startIndex;
     _a = getSemicolonBlockEndIndex(inputs, settings, startIndex, parentEndIndex), endIndex = _a[0], parentEndIndex = _a[1];
-    var st = -1;
-    if (inputs[startIndex].regexStartsWith(/[a-zA-Z0-9_]+[\s]*\(.*/) && startIndex < endIndex){
-        // in case of a procedure, we take the first bracket to align on
-        st = inputs[startIndex].indexOf("(")
-    }
-    if (( (inputs[startIndex].indexOf("<=") >0)  && startIndex < endIndex)) {
-        // in case of a function call, the bracket after the function name is needed.
-        var r = new RegExp(/[\s\S]+?\s*<=\s*[a-zA-Z0-9_]+\s*\(/)
-        var m = inputs[startIndex].match(r)
-        if (m && m.length){
-            st=m[0].length-1
-        }
-    }
-
-    if (st > 0){
-        var stuf = ILOthers.repeat(st-(settings.Indentation.length-1))
-        //var stuf = String.fromCharCode(65).repeat(st-2)
-        for (var i = startIndex+1; i < endIndex+1; i++) {
-            inputs[i] = stuf + inputs[i]
-        }
-    }
-
     result.push(new FormattedLine(inputs[startIndex], indent));
     if (endIndex != startIndex) {
         var i = beautify3(inputs, result, settings, startIndex + 1, indent + 1, endIndex);
@@ -843,7 +821,7 @@ function beautifySemicolonBlock(inputs, result, settings, startIndex, parentEndI
 }
 exports.beautifySemicolonBlock = beautifySemicolonBlock;
 function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k;
     var i;
     var regexOneLineBlockKeyWords = new RegExp(/(PROCEDURE)[^\w](?!.+[^\w]IS([^\w]|$))/); //match PROCEDURE..; but not PROCEDURE .. IS;
     var regexFunctionMultiLineBlockKeyWords = new RegExp(/(FUNCTION|IMPURE FUNCTION)[^\w](?=.+[^\w]IS([^\w]|$))/); //match FUNCTION .. IS; but not FUNCTION
@@ -867,7 +845,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
         "(CONFIGURATION(?!.+;))",
         "BLOCK",
         "UNITS",
-        "\\w+\\s+\\w+\\s+IS\\s+RECORD",
+        "\\w+\\s+\\w+\\s+IS\\s+RECORD"
     ];
     var blockEndsKeyWords = ["END", ".*\\)\\s*RETURN\\s+[\\w]+;"]
     var indentedEndsKeyWords = [ILIndentedReturnPrefix + "RETURN\\s+\\w+;"];
@@ -876,9 +854,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
         "([\\w\\\\]+[\\s]*<=)",
         "([\\w\\\\]+[\\s]*:=)",
         "FOR\\s+[\\w\\s,]+:\\s*\\w+\\s+USE",
-        "REPORT",
-        "[a-zA-Z0-9_]+[\\s]*\\(.*",
-        "([\\s\\S]+?[\\s]*<=)[\\s]*[a-zA-Z0-9_]+[\\s]*\\(.*"
+        "REPORT"
     ];
     var newLineAfterKeyWordsStr = blockStartsKeyWords.join("|");
     var regexBlockMidKeyWords = blockMidKeyWords.convertToRegexBlockWords();
@@ -914,11 +890,11 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
             Mode = modeCache;
             continue;
         }
-        if (Mode != FormatMode.EndsWithSemicolon && input.regexStartsWith(regexblockEndsWithSemicolon) 
-                       && !(input.regexStartsWith(/port|generic/i))
-                       && !(input.regexStartsWith(newLineAfterKeyWordsStr))
-                       ) {
-        //if (Mode != FormatMode.EndsWithSemicolon && input.regexStartsWith(regexblockEndsWithSemicolon) ) {
+        if (Mode != FormatMode.EndsWithSemicolon && input.regexStartsWith(regexblockEndsWithSemicolon)
+            && !(input.regexStartsWith(/port|generic/i))
+            && !(input.regexStartsWith(newLineAfterKeyWordsStr))
+        ) {
+            //if (Mode != FormatMode.EndsWithSemicolon && input.regexStartsWith(regexblockEndsWithSemicolon) ) {
             var modeCache = Mode;
             Mode = FormatMode.EndsWithSemicolon;
             _c = beautifySemicolonBlock(inputs, result, settings, i, endIndex, indent), i = _c[0], endIndex = _c[1];
@@ -1078,7 +1054,7 @@ function RemoveExtraNewLines(input) {
     return input;
 }
 
-function fix_begin_end(input){
+function fix_begin_end(input) {
     input = input.replace(/   (-----+ *\r\n)   (-- begin --\r\n)   (-------*)/gi, "$1$2$3");
     input = input.replace(/   (-----+ *\r\n)   (-- end --\r\n)   (-------*)/gi, "$1$2$3");
     input = input.replace(/   (-----+ *\r\n)   (-- begin *\r\n)   (-------*)/gi, "$1$2$3");
