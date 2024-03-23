@@ -686,7 +686,7 @@ function beautifyPortGenericBlock(inputs, result, settings, startIndex, parentEn
 exports.beautifyPortGenericBlock = beautifyPortGenericBlock;
 function AlignSigns(result, startIndex, endIndex, mode) {
     AlignSign_(result, startIndex, endIndex, ":", mode);
-    AlignSign_(result, startIndex, endIndex, ":=", mode);
+    AlignSign_(result, startIndex, endIndex, "[:<]{1}=", mode);
     AlignSign_(result, startIndex, endIndex, "<=", mode);
     AlignSign_(result, startIndex, endIndex, "=>", mode);
     AlignSign_(result, startIndex, endIndex, "@@comments", mode);
