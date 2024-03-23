@@ -1,0 +1,61 @@
+{
+	"name": "pretty-vhdl",
+	"displayName": "Pretty VHDL",
+	"description": "",
+	"version": "1.0.1",
+	"publisher": "kv-be",
+	"engines": {
+		"vscode": "^1.25.0"
+	},
+	"categories": [
+		"Formatters"
+	],
+	"activationEvents": [
+		"onLanguage:vhdl"
+	],
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/kv-be/pretty-vhdl.git"
+	},
+	"icon": "prettyvhdl.png",
+	"main": "./out/src/extension",
+	"contributes": {
+		"languages": [
+			{
+				"id": "vhdl",
+				"aliases": [
+					"VHDL",
+					"vhdl",
+					"vhdl-lang"
+				],
+				"extensions": [
+					"vhdl",
+					"vhd",
+					"vho",
+					"vht"
+				]
+			}
+		],
+		"snippets": [
+			{
+				"language": "vhdl",
+				"path": "./snippets/snippets.json"
+			}
+		]
+	},
+	"scripts": {
+		"postinstall": "node ./node_modules/vscode/bin/install && tsc",
+		"compile": "tsc"
+	},
+	"package-deps": [],
+	"providedServices": {},
+	"consumedServices": {},
+	"devDependencies": {
+		"@types/node": "^8.10.43",
+		"typescript": "^3.9.7",
+		"vscode": "^1.1.37"
+	},
+	"dependencies": {
+		"just-clone": "^5.0.1"
+	}
+}

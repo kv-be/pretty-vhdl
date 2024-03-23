@@ -523,10 +523,10 @@ function beautify(input, settings) {
     allignOn(arr, "\\s*COMPONENT", "\\s*END", ":");
     allignOn(arr, "\\s*COMPONENT", "\\s*END", "@@")
 
-    allignOn(arr, "\\s*GENERIC\\s*MAP", "\\s*\\)\s*;", "=>");
-    allignOn(arr, "\\s*GENERIC\\s*MAP", "\\s*\\)\s*;", "@@");
-    allignOn(arr, "\\s*PORT\\s*MAP", "\\s*\\)\s*;", "=>");
-    allignOn(arr, "\\s*PORT\\s*MAP", "\\s*\\)\s*;", "@@");
+    allignOn(arr, "\\bGENERIC\\s*MAP", "\\s*\\)\s*;", "=>");
+    allignOn(arr, "\\bGENERIC\\s*MAP", "\\s*\\)\s*;", "@@");
+    allignOn(arr, "\\bPORT\\s*MAP", "\\s*\\)\s*;", "=>");
+    allignOn(arr, "\\bPORT\\s*MAP", "\\s*\\)\s*;", "@@");
 
     //fix_architecture(arr)
 
