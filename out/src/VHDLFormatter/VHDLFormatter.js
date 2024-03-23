@@ -298,7 +298,7 @@ function fix_closing_brackets(input) {
     input = input.replace(/\);{1}([^;^\^\n)]*?\n+\s*port\s*\()/gi, "\r\n);$1") // generic with closing bracket on the same line as last assingment
     input = input.replace(/\){1}([^,^\^\n)]*?\n+\s*port\s+map\s*\()/gi, "\r\n)$1") // generic with closing bracket on the same line as last assingment
     input = input.replace(/(\s*port\s+map[\s\S\n]+?)\);(.*)/gi, "$1\r\n);$2"); // closing port map bracket not on seperate line
-    input = input.replace(/(\s*port\s*\([\s\S\n]+?)\);([^\)]+end\s+)/gi, "$1\r\n);$2"); // force closing port bracket on next line
+    input = input.replace(/(\s*port\s*\([\s\S\n]+?)\);([^\)]+\bend\s+)/gi, "$1\r\n);$2"); // force closing port bracket on next line
     input = input.replace(/\r\n\s*[\r\n]+(\s*\);.*)/gi, "\r\n$1"); // delete empty line before ); 
     input = input.replace(/\r\n\s*[\r\n]+(\s*\).*)/gi, "\r\n$1"); // delete empyt line before )
     input = input.replace(/\r\n\s*[\r\n]+(\s*port.*)/gi, "\r\n$1"); // delete empty line before port
