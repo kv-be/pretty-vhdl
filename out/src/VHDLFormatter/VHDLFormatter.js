@@ -303,7 +303,7 @@ function fix_closing_brackets(input) {
     input = input.replace(/\r\n\s*[\r\n]+(\s*\).*)/gi, "\r\n$1"); // delete empyt line before )
     input = input.replace(/\r\n\s*[\r\n]+(\s*port.*)/gi, "\r\n$1"); // delete empty line before port
     input = input.replace(/\r\n\s*[\r\n]+(\s*generic.*)/gi, "\r\n$1"); // delete empty line before generic
-    input = input.replace(/\r\n\s*[\r\n]+(\s*end.*)/gi, "\r\n$1"); // delete empty line before end
+    //input = input.replace(/\r\n\s*[\r\n]+(\s*end.*)/gi, "\r\n$1"); // delete empty line before end
     return input;
 }
 
@@ -1055,10 +1055,10 @@ function RemoveExtraNewLines(input) {
 }
 
 function fix_begin_end(input) {
-    input = input.replace(/   (-----+ *\r\n)   (-- begin --\r\n)   (-------*)/gi, "$1$2$3");
-    input = input.replace(/   (-----+ *\r\n)   (-- end --\r\n)   (-------*)/gi, "$1$2$3");
-    input = input.replace(/   (-----+ *\r\n)   (-- begin *\r\n)   (-------*)/gi, "$1$2$3");
-    input = input.replace(/   (-----+ *\r\n)   (-- end *\r\n)   (-------*)/gi, "$1$2$3");
+    input = input.replace(/   (-----+ *\r*\n)   (-- begin -- *\r*\n)   (-------* *\r*\nbegin)/gi, "$1$2$3");
+    input = input.replace(/   (-----+ *\r*\n)   (-- end -- *\r*\n)   (-------* *\r*\nend.*)/gi, "$1$2$3");
+    input = input.replace(/   (-----+ *\r*\n)   (-- begin *\r*\n)   (-------* *\r*\nbegin)/gi, "$1$2$3");
+    input = input.replace(/   (-----+ *\r*\n)   (-- end *\r*\n)   (-------* *\r*\nend.*)/gi, "$1$2$3");
     return input
 }
 //# sourceMappingURL=VHDLFormatter.js.map
