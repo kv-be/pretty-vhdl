@@ -84,7 +84,9 @@ function getConfig(options) {
     var keywordCase = 'lowercase'//getExtSettings(exports.CONFIGURATION_CASE_KEYWORD, CaseType.UpperCase).toString().toLowerCase();
     var typenameCase = 'lowercase'//getExtSettings(exports.CONFIGURATION_CASE_TYPENAME, CaseType.UpperCase).toString().toLowerCase();
     var fixSignals = false//getExtSettings(exports.CONFIGURATION_FIX_SIGNALS, false);
-    var beginEndWithoutSpace = getExtSettings(exports.CONFIGURATION_BEGIN_END, false);
+    // FOR_SETTING: if ever settings are needed, check the following line 
+    //var beginEndWithoutSpace = getExtSettings(exports.CONFIGURATION_BEGIN_END, false);
+    var beginEndWithoutSpace = false
     var newLineSettings = new VHDLFormatter.NewLineSettings();
     newLineSettings.push("generic", newLineAfterGeneric.toString());
     newLineSettings.push("generic map", newLineAfterGeneric.toString());
@@ -104,6 +106,7 @@ function getConfig(options) {
         signAlignKeywords.push("FUNCTION");
         signAlignKeywords.push("IMPURE FUNCTION");
     }
+    // FOR_SETTING:  the setting goes here in the datastructure (see last argument)
     var alignSettings = new VHDLFormatter.signAlignSettings(signAlignKeywords.length > 0, alignAllSign, signAlignMode, signAlignKeywords, beginEndWithoutSpace);
     return new VHDLFormatter.BeautifierSettings(removeComments, removeReports, checkAlias, alignSettings, keywordCase, typenameCase, indentation, newLineSettings, endOfLine, addNewLine);
 }

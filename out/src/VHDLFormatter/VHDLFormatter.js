@@ -545,9 +545,9 @@ function beautify(input, settings) {
     input = input.replace(/@@[a-z]+/g, "");
     var escapedTexts = new RegExp("[" + ILBackslash + ILQuote + ILSingleQuote + "]", "g");
     input = input.replace(escapedTexts, "");
-    if (!alignSettings.beginEndWithoutSpace) {
+    //if (!alignSettings.beginEndWithoutSpace) {
         input = fix_begin_end(input)
-    } 
+    //} 
     input = input.replace(/\r\n/g, settings.EndOfLine);
     if (settings.AddNewLine && !input.endsWith(settings.EndOfLine)) {
         input += settings.EndOfLine;
