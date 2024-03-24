@@ -2,7 +2,7 @@
 	"name": "pretty-vhdl",
 	"displayName": "Pretty VHDL",
 	"description": "",
-	"version": "1.0.2",
+	"version": "1.0.3",
 	"publisher": "kv-be",
 	"engines": {
 		"vscode": "^1.25.0"
@@ -41,8 +41,18 @@
 				"language": "vhdl",
 				"path": "./snippets/snippets.json"
 			}
-		]
-
+		],
+		"configuration": {
+			"type": "object",
+			"title": "pretty-vhdl",
+			"properties": {
+				"prettyvhdl.begin_end": {
+					"type": "boolean",
+					"default": true,
+					"description": "uses indent for begin/end of architecture "
+				}
+			}
+		}
 	},
 	"scripts": {
 		"postinstall": "node ./node_modules/vscode/bin/install && tsc",
