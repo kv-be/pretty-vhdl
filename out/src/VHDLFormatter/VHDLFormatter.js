@@ -255,7 +255,7 @@ function SetNewLinesAfterSymbols(text, newLineSettings) {
 }
 exports.SetNewLinesAfterSymbols = SetNewLinesAfterSymbols;
 var signAlignSettings = /** @class */ (function () {
-    function signAlignSettings(isRegional, isAll, mode, keyWords,  beginEnd) {
+    function signAlignSettings(isRegional, isAll, mode, keyWords, beginEnd) {
         this.isRegional = isRegional;
         this.isAll = isAll;
         this.mode = mode;
@@ -544,9 +544,9 @@ function beautify(input, settings) {
 
     input = input.replace(/@@[a-z]+/g, "");
     var escapedTexts = new RegExp("[" + ILBackslash + ILQuote + ILSingleQuote + "]", "g");
-    input = input.replace(escapedTexts, "");
+    //input = input.replace(escapedTexts, "");
     //if (!alignSettings.beginEndWithoutSpace) {
-        input = fix_begin_end(input)
+    //    input = fix_begin_end(input)
     //} 
     input = input.replace(/\r\n/g, settings.EndOfLine);
     if (settings.AddNewLine && !input.endsWith(settings.EndOfLine)) {
