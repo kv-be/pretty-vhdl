@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.RemoveAsserts = exports.ApplyNoNewLineAfter = exports.beautify3 = exports.beautifySemicolonBlock = exports.beautifyComponentBlock = exports.beautifyCaseBlock = exports.AlignSign = exports.AlignSigns = exports.beautifyPortGenericBlock = exports.FormattedLineToString = exports.FormattedLine = exports.beautify = exports.BeautifierSettings = exports.signAlignSettings = exports.SetNewLinesAfterSymbols = exports.NewLineSettings = void 0;
+exports.RemoveAsserts = exports.ApplyNoNewLineAfter = exports.beautify3 = exports.beautifySemicolonBlock= exports.beautifyEntity = exports.beautifyComponentBlock = exports.beautifyCaseBlock = exports.AlignSign = exports.AlignSigns = exports.beautifyPortGenericBlock = exports.FormattedLineToString = exports.FormattedLine = exports.beautify = exports.BeautifierSettings = exports.signAlignSettings = exports.SetNewLinesAfterSymbols = exports.NewLineSettings = void 0;
 var isTesting = false;
 var ILEscape = "@@";
 var ILCommentPrefix = ILEscape + "comments";
@@ -8,7 +8,7 @@ var ILIndentedReturnPrefix = ILEscape;
 var ILQuote = "⨵";
 var ILSingleQuote = "⦼";
 var ILBackslash = "⨸";
-var ILOthers = "⨹";
+var ILForceSpace = "⨹";
 var ILSemicolon = "⨴";
 var FormatMode;
 (function (FormatMode) {
@@ -424,10 +424,25 @@ function autoformatOn(text) {
     return arr.join('\n')
 }
 
+function PatchMagicalComments(input, commentKind) {
+
+    var endRegEx = new RegExp("([ \\t]*[--]+\\r*\\n[ \\t]*[--]+[ \\t]*"+commentKind+"[ \\t]*.*\\r*\\n[ \\t]*[--]+)")
+    var endIndex = input.search(endRegEx)
+    if (endIndex > 0) {
+        var theEnd = input.match(endRegEx)[0]
+        var endLength = theEnd.length
+        input = input.replace(endRegEx, "@@"+commentKind)
+    }
+    return [input, theEnd]
+}
+
 exports.BeautifierSettings = BeautifierSettings;
 var KeyWords = ["ABS", "ACCESS", "AFTER", "ALIAS", "ALL", "AND", "ARCHITECTURE", "ARRAY", "ASSERT", "ATTRIBUTE", "BEGIN", "BLOCK", "BODY", "BUFFER", "BUS", "CASE", "COMPONENT", "CONFIGURATION", "CONSTANT", "CONTEXT", "COVER", "DISCONNECT", "DOWNTO", "DEFAULT", "ELSE", "ELSIF", "END", "ENTITY", "EXIT", "FAIRNESS", "FILE", "FOR", "FORCE", "FUNCTION", "GENERATE", "GENERIC", "GROUP", "GUARDED", "IF", "IMPURE", "IN", "INERTIAL", "INOUT", "IS", "LABEL", "LIBRARY", "LINKAGE", "LITERAL", "LOOP", "MAP", "MOD", "NAND", "NEW", "NEXT", "NOR", "NOT", "NULL", "OF", "ON", "OPEN", "OR", "OTHERS", "OUT", "PACKAGE", "PORT", "POSTPONED", "PROCEDURE", "PROCESS", "PROPERTY", "PROTECTED", "PURE", "RANGE", "RECORD", "REGISTER", "REJECT", "RELEASE", "REM", "REPORT", "RESTRICT", "RESTRICT_GUARANTEE", "RETURN", "ROL", "ROR", "SELECT", "SEQUENCE", "SEVERITY", "SHARED", "SIGNAL", "SLA", "SLL", "SRA", "SRL", "STRONG", "SUBTYPE", "THEN", "TO", "TRANSPORT", "TYPE", "UNAFFECTED", "UNITS", "UNTIL", "USE", "VARIABLE", "VMODE", "VPROP", "VUNIT", "WAIT", "WHEN", "WHILE", "WITH", "XNOR", "XOR"];
 var TypeNames = ["BOOLEAN", "BIT", "CHARACTER", "INTEGER", "TIME", "NATURAL", "POSITIVE", "STD_LOGIC", "STD_LOGIC_VECTOR", "STD_ULOGIC", "STD_ULOGIC_VECTOR", "STRING"];
 function beautify(input, settings) {
+    var [input, theEnd] = PatchMagicalComments(input, "END")
+    var [input, theBegin] = PatchMagicalComments(input, "BEGIN")
+
     input = input.replace(/\r\n/g, "\n");
     input = input.replace(/\n/g, "\r\n");
     var arr = input.split("\r\n");
@@ -437,7 +452,7 @@ function beautify(input, settings) {
     var backslashes = escapeText(arr, "\\\\[^\\\\]+\\\\", ILBackslash);
     var quotes = escapeText(arr, '"([^"]+)"', ILQuote);
     var singleQuotes = escapeText(arr, "'[^']'", ILSingleQuote);
-    var others = escapeText(arr, "\(others\\s*=>\\s*.*?\)", ILOthers);
+    //var others = escapeText(arr, "\(others\\s*=>\\s*.*?\)", ILForceSpace);
     RemoveLeadingWhitespaces(arr);
     input = arr.join("\r\n");
     if (settings.RemoveComments) {
@@ -468,15 +483,17 @@ function beautify(input, settings) {
         input = arr.join("\r\n");
     }
     input = input.replace(/([a-zA-Z0-9\); ])\);(@@comments[0-9]+)?@@end/g, '$1\r\n);$2@@end');
-    input = input.replace(/[ ]?([&=:\-\+|\*]|[<>]+)[ ]?/g, ' $1 ');
+    //input = input.replace(/[ ]?([&=:\-\+|\*><]{1}[ ]?/g, ' $1 ');
+    input = input.replace(/(?<=[a-z0-9A-Z])\s*([&=:\-\+*><]{1})\s*(?=[ a-z0-9A-Z])/g, ' $1 '); // space after operator + - / * & = > <
     input = input.replace(/(\d+e) +([+\-]) +(\d+)/g, '$1$2$3'); // fix exponential notation format broken by previous step
-    input = input.replace(/[ ]?([,])[ ]?/g, '$1 ');
+    input = input.replace(/[ ]?([,])[ ]?/g, '$1 '); //space after a comma
     input = input.replace(/[ ]?(['"])(THEN)/g, '$1 $2');
-    input = input.replace(/[ ]?(\?)?[ ]?(<|:|>|\/)?[ ]+(=)?[ ]?/g, ' $1$2$3 ');
+    //input = input.replace(/[ ]?(\?)?[ ]?(<|:|>|\/)?[ ]+(=)?[ ]?/g, ' $1$2$3 ');
     input = input.replace(/(IF)[ ]?([\(\)])/g, '$1 $2');
     input = input.replace(/([\(\)])[ ]?(THEN)/gi, '$1 $2');
     input = input.replace(/(^|[\(\)])[ ]?(AND|OR|XOR|XNOR)[ ]*([\(])/g, '$1 $2 $3');
-    input = input.replace(/ ([\-\*\/=+<>])[ ]*([\-\*\/=+<>]) /g, " $1$2 ");
+    input = input.replace(/(?<=[a-z0-9A-Z])\s*(=>|<=|:=)\s*(?=[a-z0-9A-Z])/g, " $1 ");
+    //input = input.replace(/ ([\-\*\/=+<>])[ ]*([\-\*\/=+<>]) /g, " $1$2 ");
     //input = input.replace(/\r\n[ \t]+--\r\n/g, "\r\n");
     input = input.replace(/[ ]+/g, ' ');
     input = input.replace(/[ \t]+\r\n/g, "\r\n");
@@ -539,8 +556,10 @@ function beautify(input, settings) {
     input = replaceEscapedWords(input, singleQuotes, ILSingleQuote);
     input = replaceEscapedComments(input, comments, ILCommentPrefix);
     input = replaceEscapedWords(input, backslashes, ILBackslash);
-    input = replaceEscapedWords(input, others, ILOthers);
+    //input = replaceEscapedWords(input, others, ILForceSpace);
     input = input.replace(new RegExp(ILSemicolon, "g"), ";");
+    input = input.replace(/ *@@END/, theEnd)
+    input = input.replace(/ *@@BEGIN/, theBegin)
 
     input = input.replace(/@@[a-z]+/g, "");
     var escapedTexts = new RegExp("[" + ILBackslash + ILQuote + ILSingleQuote + "]", "g");
@@ -548,16 +567,45 @@ function beautify(input, settings) {
     //if (!alignSettings.beginEndWithoutSpace) {
     //    input = fix_begin_end(input)
     //} 
+    // fix multilines : [a-zA-Z_0-9\(\)+*-/ ]+<= *[\s\S\r*\n]+?; selects multiline assignments
+    
+   // input = fixMultilineFunctions(input);
     input = input.replace(/\r\n/g, settings.EndOfLine);
+
+    input = input.replace(new RegExp(ILForceSpace, "g"), " ")
     if (settings.AddNewLine && !input.endsWith(settings.EndOfLine)) {
         input += settings.EndOfLine;
     }
     input = autoformatOn(input);
 
-
     return input;
 }
 exports.beautify = beautify;
+
+function fixMultilineFunctions(input){
+    let index = 0
+    let new_text
+    while(index < input.length){
+        let result = input.substring(index, input.length).match(/[a-zA-Z_0-9\(\)+*-/ ]+<= *[a-zA-Z_0-9\(\),+*-/ ]+\r*\n[\s\S]+?;/);
+        if (result!=null) {
+            new_text = input.substring(index + result.index, index+result.index + result[0].length)
+            let spaceresult = new_text.match(/.*<= *[\S]+?\(/)
+            if (spaceresult != null){
+                let arr = new_text.split(/\r*\n/)
+                for (var i = 1;i<arr.length; i++){
+                    arr[i]=" ".repeat(spaceresult[0].length)+arr[i].trim(" ")
+                }
+                new_text = arr.join("\r\n")
+            }
+            input = input.substring(0, index + result.index) + new_text + input.substring(index + result.index+result[0].length, input.length)
+            index = index + result.index+new_text.length     
+        } else {
+            index = input.length
+        }
+    }
+    return input
+}
+
 function replaceEscapedWords(input, arr, prefix) {
     for (var i = 0; i < arr.length; i++) {
         var text = arr[i];
@@ -574,7 +622,7 @@ function replaceEscapedComments(input, arr, prefix) {
 }
 function RemoveLeadingWhitespaces(arr) {
     for (var i = 0; i < arr.length; i++) {
-        arr[i] = arr[i].replace(/^\s+/, "");
+        arr[i] = arr[i].replace(/^[ \t]*/, "");
     }
 }
 var FormattedLine = /** @class */ (function () {
@@ -738,6 +786,8 @@ function AlignSign_(result, startIndex, endIndex, symbol, mode) {
         AlignSign(result, startLine, endIndex, symbol, maxSymbolIndex, symbolIndices);
     }
 }
+
+
 function AlignSign(result, startIndex, endIndex, symbol, maxSymbolIndex, symbolIndices) {
     if (maxSymbolIndex === void 0) { maxSymbolIndex = -1; }
     if (symbolIndices === void 0) { symbolIndices = {}; }
@@ -780,10 +830,15 @@ function getSemicolonBlockEndIndex(inputs, settings, startIndex, parentEndIndex)
         openBracketsCount += stringBeforeSemicolon.count("(");
         closeBracketsCount += stringBeforeSemicolon.count(")");
         if (indexOfSemicolon < 0) {
-            continue;
+            continue; // loop until ; found
         }
         if (openBracketsCount == closeBracketsCount) {
             endIndex = i;
+            if (inputs[i].match(/^[ \t]*\);.*/)) {
+                // in case the line with the semicolon only contains );, it is not included in the result
+                // this makes that the ); get one indent less than the rest 
+                endIndex = i-1;
+            }
             if (stringAfterSemicolon.trim().length > 0 && settings.NewLineSettings.newLineAfter.indexOf(";") >= 0) {
                 inputs[i] = stringBeforeSemicolon;
                 inputs.splice(i, 0, stringAfterSemicolon);
@@ -811,20 +866,128 @@ function beautifyComponentBlock(inputs, result, settings, startIndex, parentEndI
     }
     return [endIndex, parentEndIndex];
 }
-exports.beautifyComponentBlock = beautifyComponentBlock;
-function beautifySemicolonBlock(inputs, result, settings, startIndex, parentEndIndex, indent) {
+function beautifyEntity(inputs, result, settings, startIndex, parentEndIndex, indent) {
     var _a;
     var endIndex = startIndex;
     _a = getSemicolonBlockEndIndex(inputs, settings, startIndex, parentEndIndex), endIndex = _a[0], parentEndIndex = _a[1];
+    endIndex = endIndex+1 // we want the ; to be included
     result.push(new FormattedLine(inputs[startIndex], indent));
     if (endIndex != startIndex) {
         var i = beautify3(inputs, result, settings, startIndex + 1, indent + 1, endIndex);
     }
     return [endIndex, parentEndIndex];
 }
+exports.beautifyEntity = beautifyEntity;
+
+
+
+
+exports.beautifyComponentBlock = beautifyComponentBlock;
+function beautifySemicolonBlock(inputs, result, settings, startIndex, parentEndIndex, indent) {
+    var _a;
+    var endIndex = startIndex;
+    var functionStart = -1;
+    // the following gets the start line of a semicolon block and the length of it (endIndex)
+    _a = getSemicolonBlockEndIndex(inputs, settings, startIndex, parentEndIndex), endIndex = _a[0], parentEndIndex = _a[1];
+    var st = -1;
+    var orgEndIndex = endIndex;
+    var stuf = ""
+    if (startIndex < endIndex) {
+        // if a multiline detected
+        if (( (inputs[startIndex].indexOf("<=") >0))) {
+            // in case of a function call, the bracket after the function name is needed.
+            inputs[startIndex] = inputs[startIndex].trim()
+            var r = new RegExp(/[\s\S]+?\s*<=\s*[a-zA-Z0-9_]+\s*\( *[a-zA-Z0-9_]+ *,*/)
+            var m = inputs[startIndex].match(r)
+            if (m && m.length){
+                // in case of a function call with argument on the first line
+                // we move the argument to the next line
+                let st=m[0].length-1
+                let mm = inputs[startIndex].match(/^[\s\S]+?\s*<=\s*[a-zA-Z0-9_]+\s*\( */)
+                let procCalIndex = 0
+                if (mm){
+                    procCalIndex = mm[0].length
+                } 
+                let procCal = inputs[startIndex].substr(0, procCalIndex)
+                let arg = inputs[startIndex].substr(procCalIndex, inputs[startIndex].length - procCalIndex)
+                inputs[startIndex] = procCal
+                inputs = inputs.slice(0, startIndex+1).concat(arg).concat(inputs.slice(startIndex + 1))
+                endIndex = endIndex+ 1 ;
+            }
+            r = new RegExp(/[\s\S]+?\s*<=\s*/)
+            st = inputs[startIndex].match(r)[0].length
+            if (st > 0){
+                // only for function calls, we need to stuff additional spaces
+                stuf = ILForceSpace.repeat(st)
+            }
+        } else {
+            // first check the position of the first argument (on the same line as the proc call or not)
+            if (inputs[startIndex].regexStartsWith(/^[a-zA-Z0-9_]+[\s]*\( *[a-zA-Z0-9_]+ *=*>* *[0-9A-Za-z_]*,/) ){
+                // in case of a procedure call with argument on the first line, we take the first bracket to align on
+                let m = inputs[startIndex].match(/^[a-zA-Z0-9_]+[\s]*\(/)
+                let procCalIndex = 0
+                if (m){
+                    procCalIndex = m[0].length
+                } 
+                let procCal = inputs[startIndex].substr(0, procCalIndex)
+                let arg = inputs[startIndex].substr(procCalIndex, inputs[startIndex].length - procCalIndex)
+                inputs[startIndex] = procCal
+                inputs = inputs.slice(0, startIndex+1).concat(arg).concat(inputs.slice(startIndex + 1))
+                endIndex = endIndex+ 1 ;
+            } else {
+                // in case of a proc call without argument on the first line => do nothing
+                // arguments will be indented automatically by one indent, which is OK
+                if (inputs[startIndex].indexOf("entity")){
+                   endIndex = endIndex + 1 
+                } else {
+                st = 0
+                }
+            }
+        }
+        // now check if the closing brackets are on a separate line
+        if ((inputs[endIndex].match(/[a-zA-Z0-9_]+[ \t]*\);.*/))) {
+            // closing brackets are on the same line as the last argument => add a line
+            //inputs[endIndex+1] = ILForceSpace.repeat(functionStart) + inputs[i].trim()
+            let m = inputs[endIndex].match(/.*\);/)
+            let procCalIndex = 0
+            if (m){
+                //-2 to subtract the );
+                procCalIndex = m[0].length-2
+
+            } 
+            let procCal = inputs[endIndex].substr(0, procCalIndex)
+            let arg = inputs[endIndex].substr(procCalIndex, inputs[endIndex].length - procCalIndex)
+            inputs[endIndex] = procCal
+            inputs = inputs.slice(0, endIndex+1).concat(arg).concat(inputs.slice(endIndex + 1))
+            //endIndex = endIndex+ 1 ;
+        } else {
+            // include ); in the range
+            //endIndex = endIndex+ 1 ;
+        }
+        
+        if (stuf.length >0){
+            endIndex = endIndex+ 1 ;
+            for (var i = startIndex+1; i <= endIndex-1; i++) {
+                inputs[i] = stuf + inputs[i].trim()
+            }
+            inputs[endIndex] = stuf.substr(0,stuf.length-3) + inputs[endIndex].trim()    
+        }
+    }
+
+    result.push(new FormattedLine(inputs[startIndex], indent));
+    if (endIndex != startIndex) {
+        if (stuf.length > 0) {
+            var i = beautify3(inputs, result, settings, startIndex + 1, indent + 1, endIndex);
+        }else {
+            var i = beautify3(inputs, result, settings, startIndex + 1, indent + 1, endIndex);
+            //result.push(new FormattedLine(inputs[endIndex], indent));
+        }
+    }
+    return [endIndex, parentEndIndex, inputs];
+}
 exports.beautifySemicolonBlock = beautifySemicolonBlock;
 function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m;;
     var i;
     var regexOneLineBlockKeyWords = new RegExp(/(PROCEDURE)[^\w](?!.+[^\w]IS([^\w]|$))/); //match PROCEDURE..; but not PROCEDURE .. IS;
     var regexFunctionMultiLineBlockKeyWords = new RegExp(/(FUNCTION|IMPURE FUNCTION)[^\w](?=.+[^\w]IS([^\w]|$))/); //match FUNCTION .. IS; but not FUNCTION
@@ -850,6 +1013,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
         "UNITS",
         "\\w+\\s+\\w+\\s+IS\\s+RECORD"
     ];
+    //var blockEndsKeyWords = ["END", ".*\\)\\s*RETURN\\s+[\\w]+;", "[\\s]*\\)+[\\s]*;"]
     var blockEndsKeyWords = ["END", ".*\\)\\s*RETURN\\s+[\\w]+;"]
     var indentedEndsKeyWords = [ILIndentedReturnPrefix + "RETURN\\s+\\w+;"];
     var blockEndsWithSemicolon = [
@@ -857,7 +1021,9 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
         "([\\w\\\\]+[\\s]*<=)",
         "([\\w\\\\]+[\\s]*:=)",
         "FOR\\s+[\\w\\s,]+:\\s*\\w+\\s+USE",
-        "REPORT"
+        "REPORT",
+        "[a-zA-Z0-9_]+[\\s]*\\(.*",
+        "([\\s\\S]+?[\\s]*<=)[\\s]*[a-zA-Z0-9_]+[\\s]*\\(.*"
     ];
     var newLineAfterKeyWordsStr = blockStartsKeyWords.join("|");
     var regexBlockMidKeyWords = blockMidKeyWords.convertToRegexBlockWords();
@@ -889,18 +1055,18 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
         if (input.regexStartsWith(/\w+\s*:\s*ENTITY/)) {
             var modeCache = Mode;
             Mode = FormatMode.EndsWithSemicolon;
-            _b = beautifySemicolonBlock(inputs, result, settings, i, endIndex, indent), i = _b[0], endIndex = _b[1];
+            _b = beautifyEntity(inputs, result, settings, i, endIndex, indent), i = _b[0], endIndex = _b[1];
             Mode = modeCache;
             continue;
         }
-        if (Mode != FormatMode.EndsWithSemicolon && input.regexStartsWith(regexblockEndsWithSemicolon)
-            && !(input.regexStartsWith(/port|generic/i))
-            && !(input.regexStartsWith(newLineAfterKeyWordsStr))
-        ) {
+        if (Mode != FormatMode.EndsWithSemicolon && input.regexStartsWith(regexblockEndsWithSemicolon) 
+                       && !(input.regexStartsWith(/port|generic/i))
+                       && !(input.regexStartsWith(newLineAfterKeyWordsStr))
+                       ) {
             //if (Mode != FormatMode.EndsWithSemicolon && input.regexStartsWith(regexblockEndsWithSemicolon) ) {
             var modeCache = Mode;
             Mode = FormatMode.EndsWithSemicolon;
-            _c = beautifySemicolonBlock(inputs, result, settings, i, endIndex, indent), i = _c[0], endIndex = _c[1];
+            _c = beautifySemicolonBlock(inputs, result, settings, i, endIndex, indent), i = _c[0], endIndex = _c[1], inputs = _c[2];
             Mode = modeCache;
             continue;
         }
@@ -1052,16 +1218,10 @@ function escapeText(arr, regex, escapedChar) {
 }
 function RemoveExtraNewLines(input) {
     //input = input.replace(/(?:\r\n|\r|\n)/g, '\r\n');
-    input = input.replace(/ \r\n/g, '\r\n');
+    input = input.replace(/ *\r\n *\r\n[\r\n]+/g, '\r\n\r\n');
     //input = input.replace(/\r\n\r\n\r\n/g, '\r\n');
     return input;
 }
 
-function fix_begin_end(input) {
-    input = input.replace(/   (-----+ *\r*\n)   (-- begin -- *\r*\n)   (-------* *\r*\nbegin)/gi, "$1$2$3");
-    input = input.replace(/   (-----+ *\r*\n)   (-- end -- *\r*\n)   (-------* *\r*\nend.*)/gi, "$1$2$3");
-    input = input.replace(/   (-----+ *\r*\n)   (-- begin *\r*\n)   (-------* *\r*\nbegin)/gi, "$1$2$3");
-    input = input.replace(/   (-----+ *\r*\n)   (-- end *\r*\n)   (-------* *\r*\nend.*)/gi, "$1$2$3");
-    return input
-}
+
 //# sourceMappingURL=VHDLFormatter.js.map
