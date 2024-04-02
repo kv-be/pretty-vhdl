@@ -538,13 +538,13 @@ function beautify(input, settings) {
     allignOn(arr, "\\bENTITY", "\\bEND", ":");
     allignOn(arr, "\\bENTITY", "\\bEND", "@@")
 
-    allignOn(arr, "\\bCOMPONENT", "\\bEND", ":");
-    allignOn(arr, "\\bCOMPONENT", "\\bEND", "@@")
+    allignOn(arr, "\\s*COMPONENT", "\\bEND", ":");
+    allignOn(arr, "\\s*COMPONENT", "\\bEND", "@@")
 
-    allignOn(arr, "\\bGENERIC\\s*MAP", "\\s*\\)\s*;", "=>");
-    allignOn(arr, "\\bGENERIC\\s*MAP", "\\s*\\)\s*;", "@@");
-    allignOn(arr, "\\bPORT\\s*MAP", "\\s*\\)\s*;", "=>");
-    allignOn(arr, "\\bPORT\\s*MAP", "\\s*\\)\s*;", "@@");
+    allignOn(arr, "\\s*GENERIC\\s*MAP", "\\s*\\)\s*;", "=>");
+    allignOn(arr, "\\s*GENERIC\\s*MAP", "\\s*\\)\s*;", "@@");
+    allignOn(arr, "\\s*PORT\\s*MAP", "\\s*\\)\s*;", "=>");
+    allignOn(arr, "\\s*PORT\\s*MAP", "\\s*\\)\s*;", "@@");
 
     //fix_architecture(arr)
 
@@ -870,7 +870,9 @@ function beautifyEntity(inputs, result, settings, startIndex, parentEndIndex, in
     var _a;
     var endIndex = startIndex;
     _a = getSemicolonBlockEndIndex(inputs, settings, startIndex, parentEndIndex), endIndex = _a[0], parentEndIndex = _a[1];
-    endIndex = endIndex+1 // we want the ; to be included
+    if (inputs[endIndex].indexOf(";") < 0){
+        endIndex = endIndex+1 // we want the ; to be included
+    }
     result.push(new FormattedLine(inputs[startIndex], indent));
     if (endIndex != startIndex) {
         var i = beautify3(inputs, result, settings, startIndex + 1, indent + 1, endIndex);
@@ -937,11 +939,7 @@ function beautifySemicolonBlock(inputs, result, settings, startIndex, parentEndI
             } else {
                 // in case of a proc call without argument on the first line => do nothing
                 // arguments will be indented automatically by one indent, which is OK
-                if (inputs[startIndex].indexOf("entity")){
-                   endIndex = endIndex + 1 
-                } else {
-                st = 0
-                }
+                  st = 0
             }
         }
         // now check if the closing brackets are on a separate line
@@ -959,14 +957,14 @@ function beautifySemicolonBlock(inputs, result, settings, startIndex, parentEndI
             let arg = inputs[endIndex].substr(procCalIndex, inputs[endIndex].length - procCalIndex)
             inputs[endIndex] = procCal
             inputs = inputs.slice(0, endIndex+1).concat(arg).concat(inputs.slice(endIndex + 1))
-            //endIndex = endIndex+ 1 ;
+            endIndex = endIndex+ 1 ;
         } else {
             // include ); in the range
-            //endIndex = endIndex+ 1 ;
+            endIndex = endIndex+ 1 ;
         }
         
         if (stuf.length >0){
-            endIndex = endIndex+ 1 ;
+            //endIndex = endIndex+ 1 ;
             for (var i = startIndex+1; i <= endIndex-1; i++) {
                 inputs[i] = stuf + inputs[i].trim()
             }
@@ -979,8 +977,8 @@ function beautifySemicolonBlock(inputs, result, settings, startIndex, parentEndI
         if (stuf.length > 0) {
             var i = beautify3(inputs, result, settings, startIndex + 1, indent + 1, endIndex);
         }else {
-            var i = beautify3(inputs, result, settings, startIndex + 1, indent + 1, endIndex);
-            //result.push(new FormattedLine(inputs[endIndex], indent));
+            var i = beautify3(inputs, result, settings, startIndex + 1, indent + 1, endIndex-1);
+            result.push(new FormattedLine(inputs[endIndex], indent));
         }
     }
     return [endIndex, parentEndIndex, inputs];
@@ -1021,7 +1019,9 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
         "([\\w\\\\]+[\\s]*<=)",
         "([\\w\\\\]+[\\s]*:=)",
         "FOR\\s+[\\w\\s,]+:\\s*\\w+\\s+USE",
-        "REPORT",
+        "ASSERT"
+    ];
+    var functionOrProcedure = [
         "[a-zA-Z0-9_]+[\\s]*\\(.*",
         "([\\s\\S]+?[\\s]*<=)[\\s]*[a-zA-Z0-9_]+[\\s]*\\(.*"
     ];
@@ -1031,6 +1031,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
     var regexBlockEndsKeyWords = blockEndsKeyWords.convertToRegexBlockWords();
     var regexBlockIndentedEndsKeyWords = indentedEndsKeyWords.convertToRegexBlockWords();
     var regexblockEndsWithSemicolon = blockEndsWithSemicolon.convertToRegexBlockWords();
+    var regexfunctionOrProcedure = functionOrProcedure.convertToRegexBlockWords();
     var regexMidKeyWhen = "WHEN".convertToRegexBlockWords();
     var regexMidKeyElse = "ELSE|ELSIF".convertToRegexBlockWords();
     if (endIndex == null) {
@@ -1059,14 +1060,25 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
             Mode = modeCache;
             continue;
         }
-        if (Mode != FormatMode.EndsWithSemicolon && input.regexStartsWith(regexblockEndsWithSemicolon) 
+        if (Mode != FormatMode.blockEndsWithSemicolon && input.regexStartsWith(regexblockEndsWithSemicolon) 
                        && !(input.regexStartsWith(/port|generic/i))
                        && !(input.regexStartsWith(newLineAfterKeyWordsStr))
                        ) {
             //if (Mode != FormatMode.EndsWithSemicolon && input.regexStartsWith(regexblockEndsWithSemicolon) ) {
             var modeCache = Mode;
             Mode = FormatMode.EndsWithSemicolon;
-            _c = beautifySemicolonBlock(inputs, result, settings, i, endIndex, indent), i = _c[0], endIndex = _c[1], inputs = _c[2];
+            _c = beautifyEntity(inputs, result, settings, i, endIndex, indent), i = _c[0], endIndex = _c[1];
+            Mode = modeCache;
+            continue;
+        }
+        if (Mode != FormatMode.functionOrProcedure && input.regexStartsWith(regexfunctionOrProcedure) 
+                       && !(input.regexStartsWith(/port|generic/i))
+                       && !(input.regexStartsWith(newLineAfterKeyWordsStr))
+                       ) {
+            //if (Mode != FormatMode.EndsWithSemicolon && input.regexStartsWith(regexblockEndsWithSemicolon) ) {
+            var modeCache = Mode;
+            Mode = FormatMode.EndsWithSemicolon;
+            _l = beautifySemicolonBlock(inputs, result, settings, i, endIndex, indent), i = _l[0], endIndex = _l[1], inputs = _l[2];
             Mode = modeCache;
             continue;
         }
