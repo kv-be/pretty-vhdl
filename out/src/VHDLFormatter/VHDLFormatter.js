@@ -512,6 +512,9 @@ function beautify(input, settings) {
 
     input = input.replace(/(\s+port\s+map)\s*([^\(]*)\n\s*\(/gi, "$1 \($2"); // port with bracket on next line
     input = input.replace(/(\s+port)\s*([^\(]*)\r\n\s*\(/gi, "$1 \($2"); // port with bracket on next line
+    input = input.replace(/WHEN *(\w+) *=> (.+@@.*)/gi, "WHEN $1 =>\r\n$2") // when followed by something and ending in a comment
+    input = input.replace(/WHEN *(\w+) *=> *((?!.*@@).+)/gi, "WHEN $1 =>\r\n$2") // when followed by not a comment
+    
 
     input = input.replace(/(.*;)(.*;)/gi, "$1\r\n$2"); // one executable statement per line
     input = input.replace(/(\s*signal\s+\w+\s*),(\s*\w+\s*):(.*)/gi, "$1 : $3\r\nsignal $2 : $3"); // 2 signals defined on the same line
