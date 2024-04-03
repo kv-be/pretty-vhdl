@@ -484,7 +484,8 @@ function beautify(input, settings) {
     }
     input = input.replace(/([a-zA-Z0-9\); ])\);(@@comments[0-9]+)?@@end/g, '$1\r\n);$2@@end');
     //input = input.replace(/[ ]?([&=:\-\+|\*><]{1}[ ]?/g, ' $1 ');
-    input = input.replace(/(?<=[a-z0-9A-Z])\s*([&=:\-\+*><]{1})\s*(?=[ a-z0-9A-Z])/g, ' $1 '); // space after operator + - / * & = > <
+    input = input.replace(/(?<=[a-z0-9A-Z])[ ]?([&=:\-\+*></]{1})[ ]?(?=[a-z0-9A-Z])/g, ' $1 '); // space after operator + - / * & = > <
+    input = input.replace(/(?<=[a-z0-9A-Z])[ ]?((=>|<=|!=|:=|\*\*){1})[ ]?(?=[a-z0-9A-Z])/g, ' $1 '); // space after operator + - / * & = > <
     input = input.replace(/(\d+e) +([+\-]) +(\d+)/g, '$1$2$3'); // fix exponential notation format broken by previous step
     input = input.replace(/[ ]?([,])[ ]?/g, '$1 '); //space after a comma
     input = input.replace(/[ ]?(['"])(THEN)/g, '$1 $2');
@@ -492,7 +493,7 @@ function beautify(input, settings) {
     input = input.replace(/(IF)[ ]?([\(\)])/g, '$1 $2');
     input = input.replace(/([\(\)])[ ]?(THEN)/gi, '$1 $2');
     input = input.replace(/(^|[\(\)])[ ]?(AND|OR|XOR|XNOR)[ ]*([\(])/g, '$1 $2 $3');
-    input = input.replace(/(?<=[a-z0-9A-Z])\s*(=>|<=|:=)\s*(?=[a-z0-9A-Z])/g, " $1 ");
+    //input = input.replace(/(?<=[a-z0-9A-Z])[ ]?(=>|<=|:=)[ ]?(?=[a-z0-9A-Z])/g, " $1 ");
     //input = input.replace(/ ([\-\*\/=+<>])[ ]*([\-\*\/=+<>]) /g, " $1$2 ");
     //input = input.replace(/\r\n[ \t]+--\r\n/g, "\r\n");
     input = input.replace(/[ ]+/g, ' ');
@@ -515,10 +516,6 @@ function beautify(input, settings) {
     input = input.replace(/(.*;)(.*;)/gi, "$1\r\n$2"); // one executable statement per line
     input = input.replace(/(\s*signal\s+\w+\s*),(\s*\w+\s*):(.*)/gi, "$1 : $3\r\nsignal $2 : $3"); // 2 signals defined on the same line
     input = input.replace(/(\s*variable\s+\w+\s*),(\s*\w+\s*):(.*)/gi, "$1 : $3\r\nvariable $2 : $3"); // 2 signals defined on the same line
-    //input = input.replace(/(\s+G_\S+\s+:+\s*[0-9a-zA-Z()_ +-/*']+)\);([^\(]*)/gi, "$1\r\n);$2"); //generic with closing bracket on last line
-    //input = input.replace(/(\s+G_\S+\s+=>+\s*[0-9a-zA-Z()_ +-/*']+)\)([^\(]*)/gi, "$1\r\n)$2"); //generic MAP with closing bracket on last line
-    //input = input.replace(/(\s+\S+\s+=>+\s*[0-9a-zA-Z()_ +-/*']+)\);([^\(]*)/gi, "$1\r\n);$2"); //generic MAP with closing bracket on last line
-    //input = input.replace(/(.*):\s*in (.*)\r\n/g, "$1: in  $2\r\n"); // : in std_logic => : in  std_logic;
     input = fix_closing_brackets(input);
 
 
