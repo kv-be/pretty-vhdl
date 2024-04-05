@@ -446,6 +446,30 @@ function beautify(input, settings) {
 
     input = input.replace(/\r\n/g, "\n");
     input = input.replace(/\n/g, "\r\n");
+
+    var instances = input.match(/(?<firstspace>[ ]*).*:.*\r*\n(?<Secspace>[ ]*)(port|generic)[ ]*map[ ]*\(/gi)
+    var noOld = 0
+    var noNew = 0
+    var m
+    var index = 0
+    var length = 0
+    do {
+        m = /(?<firstspace>[ ]*).*:.*\r*\n(?<Secspace>[ ]*)(port|generic)[ ]*map[ ]*\(/gi.exec(input.slice(index))
+        if (m) {
+            if (m.groups.firstspace.length === m.groups.Secspace.length) {
+                noNew++;
+            } else {
+                noOld++;
+            }
+            length = m[0].length
+            index += (m.index + m[0].length)
+        }
+    } while (m)
+    settings.oldInstanceAlignment = false
+    if (noOld > noNew) {
+        settings.oldInstanceAlignment = true
+    }
+
     var arr = input.split("\r\n");
     autoformatOff(arr)
 
@@ -986,6 +1010,7 @@ function beautifySemicolonBlock(inputs, result, settings, startIndex, parentEndI
 }
 exports.beautifySemicolonBlock = beautifySemicolonBlock;
 function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
+    //var oldInstanceAlignment = false
     var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m;;
     var i;
     var regexOneLineBlockKeyWords = new RegExp(/(PROCEDURE)[^\w](?!.+[^\w]IS([^\w]|$))/); //match PROCEDURE..; but not PROCEDURE .. IS;
@@ -1001,7 +1026,6 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
         "(([\\w\\s]*:)?(\\s)*POSTPONED PROCESS)",
         "(.*\\s*PROTECTED)",
         "(COMPONENT)",
-        "(ENTITY(?!.+;))",
         "FOR",
         "WHILE",
         "LOOP",
@@ -1012,6 +1036,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
         "UNITS",
         "\\w+\\s+\\w+\\s+IS\\s+RECORD"
     ];
+
     //var blockEndsKeyWords = ["END", ".*\\)\\s*RETURN\\s+[\\w]+;", "[\\s]*\\)+[\\s]*;"]
     var blockEndsKeyWords = ["END", ".*\\)\\s*RETURN\\s+[\\w]+;"]
     var indentedEndsKeyWords = [ILIndentedReturnPrefix + "RETURN\\s+\\w+;"];
@@ -1024,17 +1049,28 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
     ];
     var functionOrProcedure = [
         "[a-zA-Z0-9_]+[\\s]*\\(.*",
-        "([\\s\\S]+?[\\s]*<=)[\\s]*[a-zA-Z0-9_]+[\\s]*\\(.*"
+        "([\\s\\S]+?[\\s]*(<|:)=)[\\s]*[a-zA-Z0-9_]+[\\s]*\\(.*"
     ];
-    var newLineAfterKeyWordsStr = blockStartsKeyWords.join("|");
-    var regexBlockMidKeyWords = blockMidKeyWords.convertToRegexBlockWords();
-    var regexBlockStartsKeywords = new RegExp("([\\w]+\\s*:\\s*)?(" + newLineAfterKeyWordsStr + ")([^\\w]|$)");
     var regexBlockEndsKeyWords = blockEndsKeyWords.convertToRegexBlockWords();
     var regexBlockIndentedEndsKeyWords = indentedEndsKeyWords.convertToRegexBlockWords();
     var regexblockEndsWithSemicolon = blockEndsWithSemicolon.convertToRegexBlockWords();
     var regexfunctionOrProcedure = functionOrProcedure.convertToRegexBlockWords();
     var regexMidKeyWhen = "WHEN".convertToRegexBlockWords();
     var regexMidKeyElse = "ELSE|ELSIF".convertToRegexBlockWords();
+
+    if (settings.oldInstanceAlignment) {
+        blockStartsKeyWords.push("(ENTITY(?!.+;))") // old way of aligning entities
+
+    } else {
+        blockStartsKeyWords.push("(^[]*ENTITY(?!.+;))")   // when normal instance alignment
+    }
+
+    var newLineAfterKeyWordsStr = blockStartsKeyWords.join("|");
+    var regexBlockMidKeyWords = blockMidKeyWords.convertToRegexBlockWords();
+    var regexBlockStartsKeywords = new RegExp("([\\w]+\\s*:\\s*)?(" + newLineAfterKeyWordsStr + ")([^\\w]|$)");
+
+
+
     if (endIndex == null) {
         endIndex = inputs.length - 1;
     }
@@ -1054,7 +1090,8 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
             Mode = modeCache;
             continue;
         }
-        if (input.regexStartsWith(/\w+\s*:\s*ENTITY/)) {
+        if (input.regexStartsWith(/\w+\s*:\s*ENTITY/) && settings.oldInstanceAlignment) {
+            //entity instantiation : remove this line when instances need to start at indent +0
             var modeCache = Mode;
             Mode = FormatMode.EndsWithSemicolon;
             _b = beautifyEntity(inputs, result, settings, i, endIndex, indent), i = _b[0], endIndex = _b[1];
