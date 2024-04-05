@@ -536,11 +536,11 @@ function beautify(input, settings) {
 
     fix_in_allignment(arr);
 
-    allignOn(arr, "\\bENTITY", "\\bEND", ":");
-    allignOn(arr, "\\bENTITY", "\\bEND", "@@")
+    allignOn(arr, "\\bENTITY", "[ ]*\\bEND", ":");
+    allignOn(arr, "\\bENTITY", "[ ]*\\bEND", "@@")
 
-    allignOn(arr, "\\s*COMPONENT", "\\bEND", ":");
-    allignOn(arr, "\\s*COMPONENT", "\\bEND", "@@")
+    allignOn(arr, "\\s*COMPONENT", "[ ]*\\bEND", ":");
+    allignOn(arr, "\\s*COMPONENT", "[ ]*\\bEND", "@@")
 
     allignOn(arr, "\\s*GENERIC\\s*MAP", "\\s*\\)\s*;", "=>");
     allignOn(arr, "\\s*GENERIC\\s*MAP", "\\s*\\)\s*;", "@@");
