@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.RemoveAsserts = exports.ApplyNoNewLineAfter = exports.beautify3 = exports.beautifySemicolonBlock = exports.beautifyEntity = exports.beautifyComponentBlock = exports.beautifyCaseBlock = exports.AlignSign = exports.AlignSigns = exports.beautifyPortGenericBlock = exports.FormattedLineToString = exports.FormattedLine = exports.beautify = exports.BeautifierSettings = exports.signAlignSettings = exports.SetNewLinesAfterSymbols = exports.NewLineSettings = void 0;
+exports.RemoveAsserts = exports.ApplyNoNewLineAfter = exports.beautify3 = exports.beautifySemicolonBlock = exports.beautifyEntity = exports.beautifyComponentBlock = exports.beautifyWhenBlock = exports.beautifyCaseBlock = exports.AlignSign = exports.AlignSigns = exports.beautifyPortGenericBlock = exports.FormattedLineToString = exports.FormattedLine = exports.beautify = exports.BeautifierSettings = exports.signAlignSettings = exports.SetNewLinesAfterSymbols = exports.NewLineSettings = void 0;
 var isTesting = false;
 var ILEscape = "@@";
 var ILCommentPrefix = ILEscape + "comments";
@@ -849,6 +849,30 @@ function beautifyCaseBlock(inputs, result, settings, startIndex, indent) {
     return i;
 }
 exports.beautifyCaseBlock = beautifyCaseBlock;
+
+function beautifyWhenBlock(inputs, result, settings, startIndex, indent) {
+    var _a = getSemicolonBlockEndIndex(inputs, settings, startIndex, parentEndIndex), endIndex = _a[0], parentEndIndex = _a[1];
+    if (inputs[endIndex].indexOf(";") < 0) {
+        endIndex = endIndex + 1 // we want the ; to be included
+    }
+    result.push(new FormattedLine(inputs[startIndex], indent));
+
+    var stuf = inputs[startIndex].match(/.*<= */)
+    if (stuf) {
+        for (i = startIndex + 1; i <= endIndex; i++) {
+            inputs[i] = ILForceSpace.repeat(stuf[0].length) + inputs[i]
+        }
+    }
+
+    if (endIndex != startIndex) {
+        var i = beautify3(inputs, result, settings, startIndex + 1, indent, endIndex);
+    }
+    return [endIndex, inputs];
+}
+exports.beautifyWhenBlock = beautifyWhenBlock;
+
+
+
 function getSemicolonBlockEndIndex(inputs, settings, startIndex, parentEndIndex) {
     var endIndex = 0;
     var openBracketsCount = 0;
@@ -1056,15 +1080,17 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
         "ASSERT"
     ];
     var functionOrProcedure = [
-        "[a-zA-Z0-9_]+[\\s]*\\(.*",
-        "([\\s\\S]+?[\\s]*(<|:)=)[\\s]*[a-zA-Z0-9_]+[\\s]*\\(.*"
+        "([a-zA-Z0-9_]+[\\s]*\\(.*)",
+        "(([\\s\\S]+?[\\s]*(<|:)=)[\\s]*[a-zA-Z0-9_]+[\\s]*\\(.*)"
     ];
     var regexBlockEndsKeyWords = blockEndsKeyWords.convertToRegexBlockWords();
     var regexBlockIndentedEndsKeyWords = indentedEndsKeyWords.convertToRegexBlockWords();
     var regexblockEndsWithSemicolon = blockEndsWithSemicolon.convertToRegexBlockWords();
-    var regexfunctionOrProcedure = functionOrProcedure.convertToRegexBlockWords();
+    var regexfunctionOrProcedure = functionOrProcedure[0] + "|" + functionOrProcedure[1]
+    regexfunctionOrProcedure = regexfunctionOrProcedure.convertToRegexBlockWords();
     var regexMidKeyWhen = "WHEN".convertToRegexBlockWords();
     var regexMidKeyElse = "ELSE|ELSIF".convertToRegexBlockWords();
+    var regexKeyword = new RegExp("(\\b" + KeyWords.join("\\b|\\b") + "\\b)")
 
     if (settings.oldInstanceAlignment) {
         blockStartsKeyWords.push("(ENTITY(?!.+;))") // old way of aligning entities
@@ -1106,28 +1132,6 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
             Mode = modeCache;
             continue;
         }
-        if (Mode != FormatMode.blockEndsWithSemicolon && input.regexStartsWith(regexblockEndsWithSemicolon)
-            && !(input.regexStartsWith(/port|generic/i))
-            && !(input.regexStartsWith(newLineAfterKeyWordsStr))
-        ) {
-            //if (Mode != FormatMode.EndsWithSemicolon && input.regexStartsWith(regexblockEndsWithSemicolon) ) {
-            var modeCache = Mode;
-            Mode = FormatMode.EndsWithSemicolon;
-            _c = beautifyEntity(inputs, result, settings, i, endIndex, indent), i = _c[0], endIndex = _c[1];
-            Mode = modeCache;
-            continue;
-        }
-        if (Mode != FormatMode.functionOrProcedure && input.regexStartsWith(regexfunctionOrProcedure)
-            && !(input.regexStartsWith(/port|generic/i))
-            && !(input.regexStartsWith(newLineAfterKeyWordsStr))
-        ) {
-            //if (Mode != FormatMode.EndsWithSemicolon && input.regexStartsWith(regexblockEndsWithSemicolon) ) {
-            var modeCache = Mode;
-            Mode = FormatMode.EndsWithSemicolon;
-            _l = beautifySemicolonBlock(inputs, result, settings, i, endIndex, indent), i = _l[0], endIndex = _l[1], inputs = _l[2];
-            Mode = modeCache;
-            continue;
-        }
         if (input.regexStartsWith(/(.+:\s*)?(CASE)([\s]|$)/)) {
             var modeCache = Mode;
             Mode = FormatMode.CaseWhen;
@@ -1135,6 +1139,13 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
             Mode = modeCache;
             continue;
         }
+        if (input.regexStartsWith(/.*\bWHEN\b.*\bELSE\b/)) {
+            var modeCache = Mode;
+            _m = beautifyWhenBlock(inputs, result, settings, i, indent), i = _m[0], inputs = _m[1]
+            Mode = modeCache;
+            continue;
+        }
+
         if (input.regexStartsWith(/.*?\:\=\s*\($/)) {
             _d = beautifyPortGenericBlock(inputs, result, settings, i, endIndex, indent, ":="), i = _d[0], endIndex = _d[1];
             continue;
@@ -1193,6 +1204,31 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
             }
             continue;
         }
+        if (Mode != FormatMode.blockEndsWithSemicolon && input.regexStartsWith(regexblockEndsWithSemicolon)
+            && !(input.regexStartsWith(/port|generic/i))
+            && !(input.regexStartsWith(newLineAfterKeyWordsStr))
+        ) {
+            //if (Mode != FormatMode.EndsWithSemicolon && input.regexStartsWith(regexblockEndsWithSemicolon) ) {
+            var modeCache = Mode;
+            Mode = FormatMode.EndsWithSemicolon;
+            _c = beautifyEntity(inputs, result, settings, i, endIndex, indent), i = _c[0], endIndex = _c[1];
+            Mode = modeCache;
+            continue;
+        }
+        if (Mode != FormatMode.functionOrProcedure && input.regexStartsWith(regexfunctionOrProcedure)
+            && !(input.regexStartsWith(regexKeyword))
+            && (input.indexOf("WHEN") === -1)
+            && (input.indexOf("ELSE") === -1)
+            && !(input.regexStartsWith(newLineAfterKeyWordsStr))
+        ) {
+            //multiline function or procedure
+            var modeCache = Mode;
+            Mode = FormatMode.EndsWithSemicolon;
+            _l = beautifySemicolonBlock(inputs, result, settings, i, endIndex, indent), i = _l[0], endIndex = _l[1], inputs = _l[2];
+            Mode = modeCache;
+            continue;
+        }
+
         result.push(new FormattedLine(input, indent));
         if (startIndex != 0
             && (input.regexStartsWith(regexBlockMidKeyWords)
