@@ -437,22 +437,11 @@ function PatchMagicalComments(input, commentKind) {
     return [input, theEnd]
 }
 
-exports.BeautifierSettings = BeautifierSettings;
-var KeyWords = ["ABS", "ACCESS", "AFTER", "ALIAS", "ALL", "AND", "ARCHITECTURE", "ARRAY", "ASSERT", "ATTRIBUTE", "BEGIN", "BLOCK", "BODY", "BUFFER", "BUS", "CASE", "COMPONENT", "CONFIGURATION", "CONSTANT", "CONTEXT", "COVER", "DISCONNECT", "DOWNTO", "DEFAULT", "ELSE", "ELSIF", "END", "ENTITY", "EXIT", "FAIRNESS", "FILE", "FOR", "FORCE", "FUNCTION", "GENERATE", "GENERIC", "GROUP", "GUARDED", "IF", "IMPURE", "IN", "INERTIAL", "INOUT", "IS", "LABEL", "LIBRARY", "LINKAGE", "LITERAL", "LOOP", "MAP", "MOD", "NAND", "NEW", "NEXT", "NOR", "NOT", "NULL", "OF", "ON", "OPEN", "OR", "OTHERS", "OUT", "PACKAGE", "PORT", "POSTPONED", "PROCEDURE", "PROCESS", "PROPERTY", "PROTECTED", "PURE", "RANGE", "RECORD", "REGISTER", "REJECT", "RELEASE", "REM", "REPORT", "RESTRICT", "RESTRICT_GUARANTEE", "RETURN", "ROL", "ROR", "SELECT", "SEQUENCE", "SEVERITY", "SHARED", "SIGNAL", "SLA", "SLL", "SRA", "SRL", "STRONG", "SUBTYPE", "THEN", "TO", "TRANSPORT", "TYPE", "UNAFFECTED", "UNITS", "UNTIL", "USE", "VARIABLE", "VMODE", "VPROP", "VUNIT", "WAIT", "WHEN", "WHILE", "WITH", "XNOR", "XOR"];
-var TypeNames = ["BOOLEAN", "BIT", "CHARACTER", "INTEGER", "TIME", "NATURAL", "POSITIVE", "STD_LOGIC", "STD_LOGIC_VECTOR", "STD_ULOGIC", "STD_ULOGIC_VECTOR", "STRING"];
-function beautify(input, settings) {
-    var [input, theEnd] = PatchMagicalComments(input, "END")
-    var [input, theBegin] = PatchMagicalComments(input, "BEGIN")
-
-    input = input.replace(/\r\n/g, "\n");
-    input = input.replace(/\n/g, "\r\n");
-
-    var instances = input.match(/(?<firstspace>[ ]*).*:.*\r*\n(?<Secspace>[ ]*)(port|generic)[ ]*map[ ]*\(/gi)
+function entityInstanceAlignmentSetting(input, settings) {
     var noOld = 0
     var noNew = 0
     var m
     var index = 0
-    var length = 0
     do {
         m = /(?<firstspace>[ ]*).*:.*\r*\n(?<Secspace>[ ]*)(port|generic)[ ]*map[ ]*\(/gi.exec(input.slice(index))
         if (m) {
@@ -461,7 +450,6 @@ function beautify(input, settings) {
             } else {
                 noOld++;
             }
-            length = m[0].length
             index += (m.index + m[0].length)
         }
     } while (m)
@@ -477,6 +465,19 @@ function beautify(input, settings) {
     if (settings.SignAlignSettings.entityInstanceAlignment === "Indented") {
         settings.oldInstanceAlignment = true
     }
+
+}
+
+exports.BeautifierSettings = BeautifierSettings;
+var KeyWords = ["ABS", "ACCESS", "AFTER", "ALIAS", "ALL", "AND", "ARCHITECTURE", "ARRAY", "ASSERT", "ATTRIBUTE", "BEGIN", "BLOCK", "BODY", "BUFFER", "BUS", "CASE", "COMPONENT", "CONFIGURATION", "CONSTANT", "CONTEXT", "COVER", "DISCONNECT", "DOWNTO", "DEFAULT", "ELSE", "ELSIF", "END", "ENTITY", "EXIT", "FAIRNESS", "FILE", "FOR", "FORCE", "FUNCTION", "GENERATE", "GENERIC", "GROUP", "GUARDED", "IF", "IMPURE", "IN", "INERTIAL", "INOUT", "IS", "LABEL", "LIBRARY", "LINKAGE", "LITERAL", "LOOP", "MAP", "MOD", "NAND", "NEW", "NEXT", "NOR", "NOT", "NULL", "OF", "ON", "OPEN", "OR", "OTHERS", "OUT", "PACKAGE", "PORT", "POSTPONED", "PROCEDURE", "PROCESS", "PROPERTY", "PROTECTED", "PURE", "RANGE", "RECORD", "REGISTER", "REJECT", "RELEASE", "REM", "REPORT", "RESTRICT", "RESTRICT_GUARANTEE", "RETURN", "ROL", "ROR", "SELECT", "SEQUENCE", "SEVERITY", "SHARED", "SIGNAL", "SLA", "SLL", "SRA", "SRL", "STRONG", "SUBTYPE", "THEN", "TO", "TRANSPORT", "TYPE", "UNAFFECTED", "UNITS", "UNTIL", "USE", "VARIABLE", "VMODE", "VPROP", "VUNIT", "WAIT", "WHEN", "WHILE", "WITH", "XNOR", "XOR"];
+var TypeNames = ["BOOLEAN", "BIT", "CHARACTER", "INTEGER", "TIME", "NATURAL", "POSITIVE", "STD_LOGIC", "STD_LOGIC_VECTOR", "STD_ULOGIC", "STD_ULOGIC_VECTOR", "STRING"];
+function beautify(input, settings) {
+    var [input, theEnd] = PatchMagicalComments(input, "END")
+    var [input, theBegin] = PatchMagicalComments(input, "BEGIN")
+
+    input = input.replace(/\r\n/g, "\n");
+    input = input.replace(/\n/g, "\r\n");
+    entityInstanceAlignmentSetting(input, settings)
     var arr = input.split("\r\n");
     autoformatOff(arr)
 
