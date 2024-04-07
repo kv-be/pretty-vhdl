@@ -312,8 +312,8 @@ function fix_closing_brackets(input) {
 
 
 function allignOn(arr, object, endpat, toallign) {
-    let start = 0;
-    let end = 0;
+    let start = -1;
+    let end = -1;
     let max = 0;
     let pos = 0;
     let delta = 0;
@@ -325,7 +325,7 @@ function allignOn(arr, object, endpat, toallign) {
         if (arr[k].regexStartsWith(new RegExp(object))) {
             start = k;
         }
-        if (start > 0) {
+        if (start > -1) {
             pos = arr[k].search(toallignpat)
             if ((pos >= 0) && (pos > max)) {
                 if (max > 0) {
@@ -334,13 +334,13 @@ function allignOn(arr, object, endpat, toallign) {
                 max = pos;
             }
         }
-        if (arr[k].regexStartsWith(endpat) && (start > 0)) {
+        if (arr[k].regexStartsWith(endpat) && (start > -1)) {
             end = k;
             starts.push(start)
             ends.push(end)
             maxs.push(max)
-            start = 0
-            end = 0
+            start = -1
+            end = -1
             max = 0
         }
     }
@@ -545,8 +545,8 @@ function beautify(input, settings) {
 
     input = input.replace(/(\s+port\s+map)\s*([^\(]*)\n\s*\(/gi, "$1 \($2"); // port with bracket on next line
     input = input.replace(/(\s+port)\s*([^\(]*)\r\n\s*\(/gi, "$1 \($2"); // port with bracket on next line
-    input = input.replace(/WHEN *(\w+) *=> (.+@@.*)/gi, "WHEN $1 =>\r\n$2") // when followed by something and ending in a comment
-    input = input.replace(/WHEN *(\w+) *=> *((?!.*@@).+)/gi, "WHEN $1 =>\r\n$2") // when followed by not a comment
+    input = input.replace(/WHEN *(\S+) *=> ([^;]+@@.*$)/gi, "WHEN $1 =>\r\n$2") // when followed by something and ending in a comment
+    input = input.replace(/WHEN *(\S+) *=> *((?!.*@@)[^;]+$)/gi, "WHEN $1 =>\r\n$2") // when followed by not a comment
 
 
     input = input.replace(/(.*;)(.*;)/gi, "$1\r\n$2"); // one executable statement per line
@@ -573,6 +573,7 @@ function beautify(input, settings) {
 
     allignOn(arr, "\\s*COMPONENT", "[ ]*\\bEND", ":");
     allignOn(arr, "\\s*COMPONENT", "[ ]*\\bEND", "@@")
+    allignOn(arr, "\\bCASE", "[ ]*\\bEND", "@@")
 
     allignOn(arr, "\\s*GENERIC\\s*MAP", "\\s*\\)\s*;", "=>");
     allignOn(arr, "\\s*GENERIC\\s*MAP", "\\s*\\)\s*;", "@@");
@@ -751,7 +752,8 @@ function beautifyPortGenericBlock(inputs, result, settings, startIndex, parentEn
         result.push(new FormattedLine(inputs[startIndex + 1], secondLineIndent));
     }
     var blockBodyEndIndex = endIndex;
-    var i = beautify3(inputs, result, settings, blockBodyStartIndex + 1, indent + 1, endIndex);
+    var i
+    var _i = beautify3(inputs, result, settings, blockBodyStartIndex + 1, indent + 1, endIndex), i = _i[0], endIndex = _i[1], inputs = _i[2];
     if (inputs[i].startsWith(")")) {
         result[i].Indent--;
         blockBodyEndIndex--;
@@ -844,7 +846,7 @@ function beautifyCaseBlock(inputs, result, settings, startIndex, indent) {
         return startIndex;
     }
     result.push(new FormattedLine(inputs[startIndex], indent));
-    var i = beautify3(inputs, result, settings, startIndex + 1, indent + 2);
+    var _i = beautify3(inputs, result, settings, startIndex + 1, indent + 2), i = _i[0], endIndex = _i[1], inputs = _i[2];
     result[i].Indent = indent;
     return i;
 }
@@ -865,7 +867,8 @@ function beautifyWhenBlock(inputs, result, settings, startIndex, indent) {
     }
 
     if (endIndex != startIndex) {
-        var i = beautify3(inputs, result, settings, startIndex + 1, indent, endIndex);
+        var i
+        var i = beautify3(inputs, result, settings, startIndex + 1, indent, endIndex), i = _i[0], endIndex = _i[1], inputs = _i[2];
     }
     return [endIndex, inputs];
 }
@@ -916,7 +919,7 @@ function beautifyComponentBlock(inputs, result, settings, startIndex, parentEndI
     }
     result.push(new FormattedLine(inputs[startIndex], indent));
     if (endIndex != startIndex) {
-        var actualEndIndex = beautify3(inputs, result, settings, startIndex + 1, indent + 1, endIndex);
+        var _c = beautify3(inputs, result, settings, startIndex + 1, indent + 1, endIndex), actualEndIndex = _c[0], endIndex = _c[1], inputs = _c[2];
         var incremental = actualEndIndex - endIndex;
         endIndex += incremental;
         parentEndIndex += incremental;
@@ -926,15 +929,17 @@ function beautifyComponentBlock(inputs, result, settings, startIndex, parentEndI
 function beautifyEntity(inputs, result, settings, startIndex, parentEndIndex, indent) {
     var _a;
     var endIndex = startIndex;
+    var orgEndIndex = endIndex
     _a = getSemicolonBlockEndIndex(inputs, settings, startIndex, parentEndIndex), endIndex = _a[0], parentEndIndex = _a[1];
     if (inputs[endIndex].indexOf(";") < 0) {
         endIndex = endIndex + 1 // we want the ; to be included
     }
     result.push(new FormattedLine(inputs[startIndex], indent));
     if (endIndex != startIndex) {
-        var i = beautify3(inputs, result, settings, startIndex + 1, indent + 1, endIndex);
+
+        var _i = beautify3(inputs, result, settings, startIndex + 1, indent + 1, endIndex), _a = _i[0], endIndex = _i[1], inputs = _i[2];
     }
-    return [endIndex, parentEndIndex];
+    return [endIndex, parentEndIndex + endIndex - orgEndIndex];
 }
 exports.beautifyEntity = beautifyEntity;
 
@@ -1032,18 +1037,19 @@ function beautifySemicolonBlock(inputs, result, settings, startIndex, parentEndI
     result.push(new FormattedLine(inputs[startIndex], indent));
     if (endIndex != startIndex) {
         if (stuf.length > 0) {
-            var i = beautify3(inputs, result, settings, startIndex + 1, indent + 1, endIndex);
+            // case for functions and assignments
+            var _a = beautify3(inputs, result, settings, startIndex + 1, indent + 1, endIndex), i = _a[0], endIndex = _a[1], inputs = _a[2];
         } else {
-            var i = beautify3(inputs, result, settings, startIndex + 1, indent + 1, endIndex - 1);
+            var _a = beautify3(inputs, result, settings, startIndex + 1, indent + 1, endIndex - 1), i = _a[0], endIndex = _a[1], inputs = _a[2];
             result.push(new FormattedLine(inputs[endIndex], indent));
         }
     }
-    return [endIndex, parentEndIndex, inputs];
+    return [endIndex, parentEndIndex + (endIndex - orgEndIndex), inputs];
 }
 exports.beautifySemicolonBlock = beautifySemicolonBlock;
 function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
     //var oldInstanceAlignment = false
-    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m;;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t;
     var i;
     var regexOneLineBlockKeyWords = new RegExp(/(PROCEDURE)[^\w](?!.+[^\w]IS([^\w]|$))/); //match PROCEDURE..; but not PROCEDURE .. IS;
     var regexFunctionMultiLineBlockKeyWords = new RegExp(/(FUNCTION|IMPURE FUNCTION)[^\w](?=.+[^\w]IS([^\w]|$))/); //match FUNCTION .. IS; but not FUNCTION
@@ -1115,7 +1121,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
         var input = inputs[i].trim();
         if (input.regexStartsWith(regexBlockIndentedEndsKeyWords)) {
             result.push(new FormattedLine(input, indent));
-            return i;
+            return [i, endIndex, inputs];
         }
         if (input.regexStartsWith(/COMPONENT\s/)) {
             var modeCache = Mode;
@@ -1172,7 +1178,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
         if (input.regexStartsWith(/[\w\s:]*PROCEDURE[\s\w]+\($/)) {
             _h = beautifyPortGenericBlock(inputs, result, settings, i, endIndex, indent, "PROCEDURE"), i = _h[0], endIndex = _h[1];
             if (inputs[i].regexStartsWith(/.*\)[\s]*IS/)) {
-                i = beautify3(inputs, result, settings, i + 1, indent + 1);
+                _o = beautify3(inputs, result, settings, i + 1, indent + 1), i = _o[0], endIndex = _o[1], inputs = _o[2];
             }
             continue;
         }
@@ -1181,7 +1187,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
             && input.regexIndexOf(/[^\w]RETURN[^\w]/) < 0) {
             _j = beautifyPortGenericBlock(inputs, result, settings, i, endIndex, indent, "FUNCTION"), i = _j[0], endIndex = _j[1];
             if (!inputs[i].regexStartsWith(regexBlockEndsKeyWords)) {
-                i = beautify3(inputs, result, settings, i + 1, indent + 1);
+                _p = beautify3(inputs, result, settings, i + 1, indent + 1), i = _p[0], endIndex = _p[1], inputs = _p[2];
             }
             else {
                 result[i].Indent++;
@@ -1196,7 +1202,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
                     result[i].Indent++;
                 }
                 else {
-                    i = beautify3(inputs, result, settings, i + 1, indent + 1);
+                    _q = beautify3(inputs, result, settings, i + 1, indent + 1), i = _q[0], endIndex = _q[1], inputs = _q[2];
                 }
             }
             else {
@@ -1221,7 +1227,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
             && (input.indexOf("ELSE") === -1)
             && !(input.regexStartsWith(newLineAfterKeyWordsStr))
         ) {
-            //multiline function or procedure
+            //multiline function or procedure or assignment
             var modeCache = Mode;
             Mode = FormatMode.EndsWithSemicolon;
             _l = beautifySemicolonBlock(inputs, result, settings, i, endIndex, indent), i = _l[0], endIndex = _l[1], inputs = _l[2];
@@ -1239,18 +1245,18 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
         else if (startIndex != 0
             && (input.regexStartsWith(regexBlockEndsKeyWords))) {
             result[i].Indent--;
-            return i;
+            return [i, endIndex, inputs];
         }
         if (input.regexStartsWith(regexOneLineBlockKeyWords)) {
             continue;
         }
         if (input.regexStartsWith(regexFunctionMultiLineBlockKeyWords)
             || input.regexStartsWith(regexBlockStartsKeywords)) {
-            i = beautify3(inputs, result, settings, i + 1, indent + 1);
+            _r = beautify3(inputs, result, settings, i + 1, indent + 1), i = _r[0], endIndex = _r[1], inputs = _r[2];;
         }
     }
     i--;
-    return i;
+    return [i, endIndex, inputs];
 }
 exports.beautify3 = beautify3;
 function ReserveSemicolonInKeywords(arr) {
