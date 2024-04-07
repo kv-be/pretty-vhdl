@@ -1098,7 +1098,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
             Mode = modeCache;
             continue;
         }
-        if (input.regexStartsWith(/\w+\s*:\s*ENTITY/) && settings.oldInstanceAlignment) {
+        if (input.regexStartsWith(/\w+\s*:\s*(ENTITY)*/) && inputs[i + 1].regexStartsWith(/[ ]*(PORT|GENERIC)+[ ]+MAP/) && settings.oldInstanceAlignment) {
             //entity instantiation : remove this line when instances need to start at indent +0
             var modeCache = Mode;
             Mode = FormatMode.EndsWithSemicolon;
