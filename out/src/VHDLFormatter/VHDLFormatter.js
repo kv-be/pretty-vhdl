@@ -255,12 +255,12 @@ function SetNewLinesAfterSymbols(text, newLineSettings) {
 }
 exports.SetNewLinesAfterSymbols = SetNewLinesAfterSymbols;
 var signAlignSettings = /** @class */ (function () {
-    function signAlignSettings(isRegional, isAll, mode, keyWords, beginEnd) {
+    function signAlignSettings(isRegional, isAll, mode, keyWords, entityInstanceAlignment) {
         this.isRegional = isRegional;
         this.isAll = isAll;
         this.mode = mode;
         this.keyWords = keyWords;
-        this.beginEndWithoutSpace = beginEnd;
+        this.entityInstanceAlignment = entityInstanceAlignment;
     }
     return signAlignSettings;
 }());
@@ -465,11 +465,18 @@ function beautify(input, settings) {
             index += (m.index + m[0].length)
         }
     } while (m)
-    settings.oldInstanceAlignment = false
-    if (noOld > noNew) {
+    if (settings.SignAlignSettings.entityInstanceAlignment === "Compatible") {
+        settings.oldInstanceAlignment = false
+        if (noOld > noNew) {
+            settings.oldInstanceAlignment = true
+        }
+    }
+    if (settings.SignAlignSettings.entityInstanceAlignment === "Not indented") {
+        settings.oldInstanceAlignment = false
+    }
+    if (settings.SignAlignSettings.entityInstanceAlignment === "Indented") {
         settings.oldInstanceAlignment = true
     }
-
     var arr = input.split("\r\n");
     autoformatOff(arr)
 

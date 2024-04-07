@@ -1,6 +1,6 @@
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getConfig = exports.getExtSettings = exports.getSettings = exports.CONFIGURATION_CASE_TYPENAME = exports.CONFIGURATION_CASE_KEYWORD = exports.CONFIGURATION_NEWLINE_AFTER_GENERIC = exports.CONFIGURATION_NEWLINE_AFTER_ELSE = exports.CONFIGURATION_NEWLINE_AFTER_SEMICOLON = exports.CONFIGURATION_NEWLINE_AFTER_THEN = exports.CONFIGURATION_NEWLINE_AFTER_PORT = exports.CONFIGURATION_ALIGN_SIGN_MODE = exports.CONFIGURATION_ALIGN_GENERIC_SIGN = exports.CONFIGURATION_ALIGN_PROCEDURE_SIGN = exports.CONFIGURATION_ALIGN_FUNCTION_SIGN = exports.CONFIGURATION_ALIGN_PORT_SIGN = exports.CONFIGURATION_ALIGN_ALL_SIGN = exports.CONFIGURATION_CHECK_ALIAS = exports.CONFIGURATION_REMOVE_REPORTS = exports.CONFIGURATION_REMOVE_COMMENTS = exports.CONFIGURATION_INSERT_FINAL_NEW_LINE = exports.CONFIGURATION_FIX_SIGNALS= exports.CONFIGURATION_BEGIN_END = exports.CONFIGURATION_KEY = void 0;
+exports.getConfig = exports.getExtSettings = exports.getSettings = exports.CONFIGURATION_CASE_TYPENAME = exports.CONFIGURATION_CASE_KEYWORD = exports.CONFIGURATION_NEWLINE_AFTER_GENERIC = exports.CONFIGURATION_NEWLINE_AFTER_ELSE = exports.CONFIGURATION_NEWLINE_AFTER_SEMICOLON = exports.CONFIGURATION_NEWLINE_AFTER_THEN = exports.CONFIGURATION_NEWLINE_AFTER_PORT = exports.CONFIGURATION_ALIGN_SIGN_MODE = exports.CONFIGURATION_ALIGN_GENERIC_SIGN = exports.CONFIGURATION_ALIGN_PROCEDURE_SIGN = exports.CONFIGURATION_ALIGN_FUNCTION_SIGN = exports.CONFIGURATION_ALIGN_PORT_SIGN = exports.CONFIGURATION_ALIGN_ALL_SIGN = exports.CONFIGURATION_CHECK_ALIAS = exports.CONFIGURATION_REMOVE_REPORTS = exports.CONFIGURATION_REMOVE_COMMENTS = exports.CONFIGURATION_INSERT_FINAL_NEW_LINE = exports.CONFIGURATION_FIX_SIGNALS = exports.CONFIGURATION_ENTITY_INSTANCE = exports.CONFIGURATION_KEY = void 0;
 var vscode = require("vscode");
 var VHDLFormatter = require("./VHDLFormatter/VHDLFormatter");
 exports.CONFIGURATION_KEY = "prettyvhdl";
@@ -22,7 +22,7 @@ exports.CONFIGURATION_NEWLINE_AFTER_GENERIC = "newline.generic"; // NewLineConfi
 exports.CONFIGURATION_CASE_KEYWORD = "case.keyword"; // CaseType
 exports.CONFIGURATION_CASE_TYPENAME = "case.typename"; // CaseType
 exports.CONFIGURATION_FIX_SIGNALS = "fix.signals"; // testcase
-exports.CONFIGURATION_BEGIN_END = "begin_end"; // testcase
+exports.CONFIGURATION_ENTITY_INSTANCE = "EntityInstanceAlignment"; // testcase
 var AlignMode;
 (function (AlignMode) {
     AlignMode[AlignMode["Local"] = 0] = "Local";
@@ -83,10 +83,10 @@ function getConfig(options) {
     var signAlignMode = 'global'//getExtSettings(exports.CONFIGURATION_ALIGN_SIGN_MODE, AlignMode.Local).toString().toLowerCase();
     var keywordCase = 'lowercase'//getExtSettings(exports.CONFIGURATION_CASE_KEYWORD, CaseType.UpperCase).toString().toLowerCase();
     var typenameCase = 'lowercase'//getExtSettings(exports.CONFIGURATION_CASE_TYPENAME, CaseType.UpperCase).toString().toLowerCase();
-    var fixSignals = false//getExtSettings(exports.CONFIGURATION_FIX_SIGNALS, false);
+    //var fixSignals = false//getExtSettings(exports.CONFIGURATION_FIX_SIGNALS, false);
     // FOR_SETTING: if ever settings are needed, check the following line 
-    //var beginEndWithoutSpace = getExtSettings(exports.CONFIGURATION_BEGIN_END, false);
-    var beginEndWithoutSpace = false
+    var entityInstanceAlignment = getExtSettings(exports.CONFIGURATION_ENTITY_INSTANCE, "Automatic");
+    //var entityInstanceAlignment = "Automatic";
     var newLineSettings = new VHDLFormatter.NewLineSettings();
     newLineSettings.push("generic", newLineAfterGeneric.toString());
     newLineSettings.push("generic map", newLineAfterGeneric.toString());
@@ -107,7 +107,7 @@ function getConfig(options) {
         signAlignKeywords.push("IMPURE FUNCTION");
     }
     // FOR_SETTING:  the setting goes here in the datastructure (see last argument)
-    var alignSettings = new VHDLFormatter.signAlignSettings(signAlignKeywords.length > 0, alignAllSign, signAlignMode, signAlignKeywords, beginEndWithoutSpace);
+    var alignSettings = new VHDLFormatter.signAlignSettings(signAlignKeywords.length > 0, alignAllSign, signAlignMode, signAlignKeywords, entityInstanceAlignment);
     return new VHDLFormatter.BeautifierSettings(removeComments, removeReports, checkAlias, alignSettings, keywordCase, typenameCase, indentation, newLineSettings, endOfLine, addNewLine);
 }
 exports.getConfig = getConfig;

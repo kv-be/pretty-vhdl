@@ -2,7 +2,7 @@
 	"name": "pretty-vhdl",
 	"displayName": "Pretty VHDL",
 	"description": "",
-	"version": "1.0.3",
+	"version": "1.1.0",
 	"publisher": "kv-be",
 	"engines": {
 		"vscode": "^1.25.0"
@@ -41,7 +41,23 @@
 				"language": "vhdl",
 				"path": "./snippets/snippets.json"
 			}
-		]
+		],
+		"configuration": {
+			"type": "object",
+			"title": "pretty-vhdl",
+			"properties": {
+				"prettyvhdl.EntityInstanceAlignment": {
+					"type": "string",
+					"enum": [
+						"Indented",
+						"Not indented",
+						"Compatible"
+					],
+					"default": "Compatible",
+					"description": "determines how entity instantiations are indented:\n- indented puts an indent before the generic/port map\n- not indented uses the same indents as the line above for the generic/port map\n- automatic checks which type of indentation is used (most) and applies that to all instantiations. If no instantiations are detected, the not indented style is used"
+				}
+			}
+		}
 	},
 	"scripts": {
 		"postinstall": "node ./node_modules/vscode/bin/install && tsc",
