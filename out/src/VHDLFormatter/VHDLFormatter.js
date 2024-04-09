@@ -300,7 +300,7 @@ function fix_closing_brackets(input) {
     input = input.replace(/\){1}([^,^\^\n)]*?\n+\s*(port|generic)\s+map\s*\()/gi, "\r\n)$1") // generic with closing bracket on the same line as last assingment
     input = input.replace(/(\s*(port|generic)\s+map[\s\S\n]+?)\);(.*)/gi, "$1\r\n);$3"); // closing port map bracket not on seperate line
     input = input.replace(/(\s*(port|generic)\s+map[\s\S\n]+?)\);(.*)/gi, "$1\r\n);$3"); // closing port map bracket not on seperate line
-    input = input.replace(/(\s*(port|generic)\s*\([\s\S\n]+?)\);([^\)]+\bend\s+)/gi, "$1\r\n);$3"); // force closing port bracket on next line
+    input = input.replace(/(\s*(port|generic)\s*\([\s\S\n]+?)[\)]?;([^\)]+(\bend|\breport|\bassert)\s+)/gi, "$1\r\n);$3"); // force closing port bracket on next line
     input = input.replace(/\r\n\s*[\r\n]+(\s*\);.*)/gi, "\r\n$1"); // delete empty line before ); 
     input = input.replace(/\r\n\s*[\r\n]+(\s*\).*)/gi, "\r\n$1"); // delete empyt line before )
     input = input.replace(/\r\n\s*[\r\n]+(\s*(port|generic).*)/gi, "\r\n$1"); // delete empty line before port
@@ -349,6 +349,7 @@ function allignOn(arr, object, endpat, toallign) {
         for (let k = starts[s]; k < ends[s] + 1; k++) {
             pos = arr[k].search(toallignpat)
             if ((pos >= 0) && (pos < maxs[s])) {
+                var m = arr[k].match(toallignpat)
                 arr[k] = arr[k].slice(0, pos) + corr.repeat(maxs[s] - pos) + arr[k].slice(pos).trim()
                 // the line below prevented that regular expression could be used for the alignment pattern
                 //arr[k] = replace(toallignpat, corr.repeat(maxs[s] - pos) + toallign)
