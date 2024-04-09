@@ -349,8 +349,9 @@ function allignOn(arr, object, endpat, toallign) {
         for (let k = starts[s]; k < ends[s] + 1; k++) {
             pos = arr[k].search(toallignpat)
             if ((pos >= 0) && (pos < maxs[s])) {
-
-                arr[k] = arr[k].replace(toallignpat, corr.repeat(maxs[s] - pos) + toallign)
+                arr[k] = arr[k].slice(0, pos) + corr.repeat(maxs[s] - pos) + arr[k].slice(pos).trim()
+                // the line below prevented that regular expression could be used for the alignment pattern
+                //arr[k] = replace(toallignpat, corr.repeat(maxs[s] - pos) + toallign)
             }
         }
     }
@@ -545,7 +546,7 @@ function beautify(input, settings) {
 
     input = input.replace(/(\s+port\s+map)\s*([^\(]*)\n\s*\(/gi, "$1 \($2"); // port with bracket on next line
     input = input.replace(/(\s+port)\s*([^\(]*)\r\n\s*\(/gi, "$1 \($2"); // port with bracket on next line
-    input = input.replace(/WHEN *(\S+) *=> ([^;]+@@.*$)/gi, "WHEN $1 =>\r\n$2") // when followed by something and ending in a comment
+    input = input.replace(/WHEN *(\S+) *=> *([^;]+@@.*$)/gi, "WHEN $1 =>\r\n$2") // when followed by something and ending in a comment
     input = input.replace(/WHEN *(\S+) *=> *((?!.*@@)[^;]+$)/gi, "WHEN $1 =>\r\n$2") // when followed by not a comment
 
 
@@ -579,6 +580,8 @@ function beautify(input, settings) {
     allignOn(arr, "\\s*GENERIC\\s*MAP", "\\s*\\)\s*;", "@@");
     allignOn(arr, "\\s*PORT\\s*MAP", "\\s*\\)\s*;", "=>");
     allignOn(arr, "\\s*PORT\\s*MAP", "\\s*\\)\s*;", "@@");
+    // support alignment for case with commands after when
+    allignOn(arr, "\\s*CASE\\s*", "[ ]*\\bEND", "(:|<)=");
 
     //fix_architecture(arr)
 
@@ -772,13 +775,14 @@ function beautifyPortGenericBlock(inputs, result, settings, startIndex, parentEn
 exports.beautifyPortGenericBlock = beautifyPortGenericBlock;
 function AlignSigns(result, startIndex, endIndex, mode) {
     AlignSign_(result, startIndex, endIndex, ":", mode);
-    AlignSign_(result, startIndex, endIndex, "[:<]{1}=", mode);
-    AlignSign_(result, startIndex, endIndex, "<=", mode);
+    AlignSign_(result, startIndex, endIndex, "(:|<)=", mode, "WHEN");
     AlignSign_(result, startIndex, endIndex, "=>", mode);
+    //AlignSign_(result, startIndex, endIndex, "<=", mode);
+    //AlignSign_(result, startIndex, endIndex, "<=", mode);
     AlignSign_(result, startIndex, endIndex, "@@comments", mode);
 }
 exports.AlignSigns = AlignSigns;
-function AlignSign_(result, startIndex, endIndex, symbol, mode) {
+function AlignSign_(result, startIndex, endIndex, symbol, mode, exclude) {
     var maxSymbolIndex = -1;
     var symbolIndices = {};
     var startLine = startIndex;
@@ -796,12 +800,14 @@ function AlignSign_(result, startIndex, endIndex, symbol, mode) {
             continue;
         }
         //var regex = new RegExp("([\\s\\w\\\\]|^)" + symbol + "([\\s\\w\\\\]|$)");
-        var regex = new RegExp("([\\s\\w\\\\]|^)" + symbol + "([\\s\\w\\\\]|$)");
+        var regex = new RegExp("(?<=([\\s\\S\\\\]|^))" + symbol + "(?=[^=]+|$)");
         if (line.regexCount(regex) > 1) {
             continue;
         }
         var colonIndex = line.regexIndexOf(regex);
-        if (colonIndex > 0) {
+
+        if (colonIndex > 0 && (line.indexOf(exclude) == -1)) {
+            //the WHEN lines in a case do
             maxSymbolIndex = Math.max(maxSymbolIndex, colonIndex);
             symbolIndices[i] = colonIndex;
         }
