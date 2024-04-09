@@ -570,11 +570,11 @@ function beautify(input, settings) {
 
     fix_in_allignment(arr);
 
-    allignOn(arr, "\\bENTITY", "[ ]*\\bEND", ":");
-    allignOn(arr, "\\bENTITY", "[ ]*\\bEND", "@@")
+    allignOn(arr, "\\bENTITY", "[ ]*\\bEND\\b", ":");
+    allignOn(arr, "\\bENTITY", "[ ]*\\bEND\\b", "@@")
 
-    allignOn(arr, "\\s*COMPONENT", "[ ]*\\bEND", ":");
-    allignOn(arr, "\\s*COMPONENT", "[ ]*\\bEND", "@@")
+    allignOn(arr, "\\s*COMPONENT", "[ ]*\\bEND\b", ":");
+    allignOn(arr, "\\s*COMPONENT", "[ ]*\\bEND\b", "@@")
     allignOn(arr, "\\bCASE", "[ ]*\\bEND", "@@")
 
     allignOn(arr, "\\s*GENERIC\\s*MAP", "\\s*\\)\s*;", "=>");
@@ -875,7 +875,7 @@ function beautifyWhenBlock(inputs, result, settings, startIndex, indent) {
 
     if (endIndex != startIndex) {
         var i
-        var i = beautify3(inputs, result, settings, startIndex + 1, indent, endIndex), i = _i[0], endIndex = _i[1], inputs = _i[2];
+        var _i = beautify3(inputs, result, settings, startIndex + 1, indent, endIndex), i = _i[0], endIndex = _i[1], inputs = _i[2];
     }
     return [endIndex, inputs];
 }
