@@ -300,7 +300,11 @@ function fix_closing_brackets(input) {
     input = input.replace(/\){1}([^,^\^\n)]*?\n+\s*(port|generic)\s+map\s*\()/gi, "\r\n)$1") // generic with closing bracket on the same line as last assingment
     input = input.replace(/(\s*(port|generic)\s+map[\s\S\n]+?)\);(.*)/gi, "$1\r\n);$3"); // closing port map bracket not on seperate line
     input = input.replace(/(\s*(port|generic)\s+map[\s\S\n]+?)\);(.*)/gi, "$1\r\n);$3"); // closing port map bracket not on seperate line
-    input = input.replace(/(\s*(port|generic)\s*\([\s\S\n]+?)[\)]?;([^\)]+(\bend|\breport|\bassert)\s+)/gi, "$1\r\n);$3"); // force closing port bracket on next line
+    //deze lijn geeft een heel raar probleem met een generic package=> zie tmp.vhd of in image_format_pkg.vhd van 874
+    //de lijn hieronder zet het sluitend haakje van de port declaratie van een ENTITY op een nieuwe lijn
+    input = input.replace(/((entity|component)\s*[A-Za-z0-9_]+\s*is\s*(port|generic)\s*\([\s\S\n]+?)[\)]?;([^\)]+?(\bend|\breport|\bassert)\s+)/gi, "$1\r\n);$4"); // force closing port bracket on next line
+
+    input = input.replace(/(package\s*[A-Za-z0-9_]+\s*is\s*generic\s*\([\s\S\n]+?)\);([^\)]+?(\bend|\bfunction|\btype|\bsubtype|\bsignal|\bshared|\bconstant|\bprocedure)\s+)/gi, "$1\r\n);$2"); // force closing port bracket on next line
     input = input.replace(/\r\n\s*[\r\n]+(\s*\);.*)/gi, "\r\n$1"); // delete empty line before ); 
     input = input.replace(/\r\n\s*[\r\n]+(\s*\).*)/gi, "\r\n$1"); // delete empyt line before )
     input = input.replace(/\r\n\s*[\r\n]+(\s*(port|generic).*)/gi, "\r\n$1"); // delete empty line before port
@@ -536,6 +540,7 @@ function beautify(input, settings) {
     input = input.replace(/\r\n\r\n\r\n/g, '\r\n\r\n'); // remove double empty lines
     //input = input.replace(/[\r\n\s]+$/g, '');
     input = input.replace(/[ \t]+\)/g, ')');
+    input = input.replace(/(\s*FUNCTION\s+[\w]+) *\r*\n\s*(RETURN\s+.*;.*)/g, '$1 $2') //function declaration without arguments with return on the next line => stupid so put return behind the function
     input = input.replace(/\s*\)\s+RETURN\s+([\w]+;)/g, '\r\n) RETURN $1'); //function(..)\r\nreturn type; -> function(..\r\n)return type;
     input = input.replace(/\)\s*(@@\w+)\r\n\s*RETURN\s+([\w]+;)/g, ') $1\r\n' + ILIndentedReturnPrefix + 'RETURN $2'); //function(..)\r\nreturn type; -> function(..\r\n)return type;
     var keywordAndSignRegex = new RegExp("(\\b" + KeyWords.join("\\b|\\b") + "\\b) +([\\-+]) +(\\w)", "g");
@@ -755,6 +760,10 @@ function beautifyPortGenericBlock(inputs, result, settings, startIndex, parentEn
         }
         result.push(new FormattedLine(inputs[startIndex + 1], secondLineIndent));
     }
+    if (startIndex === endIndex) {
+        return [endIndex, endIndex, parentEndIndex];
+    }
+
     var blockBodyEndIndex = endIndex;
     var i
     var _i = beautify3(inputs, result, settings, blockBodyStartIndex + 1, indent + 1, endIndex), i = _i[0], endIndex = _i[1], inputs = _i[2];
@@ -1048,7 +1057,8 @@ function beautifySemicolonBlock(inputs, result, settings, startIndex, parentEndI
             var _a = beautify3(inputs, result, settings, startIndex + 1, indent + 1, endIndex), i = _a[0], endIndex = _a[1], inputs = _a[2];
         } else {
             var _a = beautify3(inputs, result, settings, startIndex + 1, indent + 1, endIndex - 1), i = _a[0], endIndex = _a[1], inputs = _a[2];
-            result.push(new FormattedLine(inputs[endIndex], indent));
+            // set the line below in comments to prevent duplication of the last line of a procedure call without arguments on the first line
+            //result.push(new FormattedLine(inputs[endIndex], indent));
         }
     }
     return [endIndex, parentEndIndex + (endIndex - orgEndIndex), inputs];
@@ -1254,6 +1264,12 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
             result[i].Indent--;
             return [i, endIndex, inputs];
         }
+        /*else if (startIndex != 0
+            && (input.indexOf(")") < 0)
+            && (input.indexOf("RETURN") > -1)) {
+            // case of a function without arguments
+            return [i, endIndex, inputs];
+        }*/
         if (input.regexStartsWith(regexOneLineBlockKeyWords)) {
             continue;
         }
