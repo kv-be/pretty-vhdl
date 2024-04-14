@@ -761,7 +761,7 @@ function beautifyPortGenericBlock(inputs, result, settings, startIndex, parentEn
         result.push(new FormattedLine(inputs[startIndex + 1], secondLineIndent));
     }
     if (startIndex === endIndex) {
-        return [endIndex, endIndex, parentEndIndex];
+        return [endIndex, parentEndIndex, parentEndIndex];
     }
 
     var blockBodyEndIndex = endIndex;
