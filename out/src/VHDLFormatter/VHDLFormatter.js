@@ -950,6 +950,7 @@ function beautifyEntity(inputs, result, settings, startIndex, parentEndIndex, in
     if (inputs[endIndex].indexOf(";") < 0) {
         endIndex = endIndex + 1 // we want the ; to be included
     }
+    orgEndIndex = endIndex
     result.push(new FormattedLine(inputs[startIndex], indent));
     if (endIndex != startIndex) {
 
