@@ -1039,6 +1039,7 @@ function beautifySemicolonBlock(inputs, result, settings, startIndex, parentEndI
         } else {
             // include ); in the range
             endIndex = endIndex + 1;
+            orgEndIndex = orgEndIndex + 1;
         }
 
         if (stuf.length > 0) {
@@ -1134,6 +1135,9 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
     for (i = startIndex; i <= endIndex; i++) {
         if (indent < 0) {
             indent = 0;
+        }
+        if (i > inputs.length - 1) {
+            break;
         }
         var input = inputs[i].trim();
         if (input.regexStartsWith(regexBlockIndentedEndsKeyWords)) {
@@ -1279,6 +1283,9 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
         }
     }
     i--;
+    if (i > inputs.length - 1) {
+        var zever = 1;
+    }
     return [i, endIndex, inputs];
 }
 exports.beautify3 = beautify3;
