@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.RemoveAsserts = exports.ApplyNoNewLineAfter = exports.beautify3 = exports.beautifySemicolonBlock = exports.beautifyEntity = exports.beautifyComponentBlock = exports.beautifyWhenBlock = exports.beautifyCaseBlock = exports.beautifyWithSelect = exports.AlignSign = exports.AlignSigns = exports.beautifyPortGenericBlock = exports.FormattedLineToString = exports.FormattedLine = exports.beautify = exports.BeautifierSettings = exports.signAlignSettings = exports.SetNewLinesAfterSymbols = exports.NewLineSettings = void 0;
+exports.RemoveAsserts = exports.ApplyNoNewLineAfter = exports.beautify3 = exports.beautifySemicolonBlock = exports.beautifyEntity = exports.beautifyComponentBlock = exports.beautifyWhenBlock = exports.beautifyCaseBlock = exports.beautifyWithSelect = exports.beautifyMultilineDefault = exports.AlignSign = exports.AlignSigns = exports.beautifyPortGenericBlock = exports.FormattedLineToString = exports.FormattedLine = exports.beautify = exports.BeautifierSettings = exports.signAlignSettings = exports.SetNewLinesAfterSymbols = exports.NewLineSettings = void 0;
 var isTesting = false;
 var ILEscape = "@@";
 var ILCommentPrefix = ILEscape + "comments";
@@ -869,6 +869,43 @@ function beautifyCaseBlock(inputs, result, settings, startIndex, indent) {
 }
 exports.beautifyCaseBlock = beautifyCaseBlock;
 
+
+function beautifyMultilineDefault(inputs, result, settings, startIndex, indent) {
+    var start = startIndex
+    var endIndex = getSemicolonBlockEndIndex(inputs, settings, startIndex, inputs.length - 1)
+    endIndex = endIndex[0]
+    if (inputs[endIndex].indexOf(";") < 0) {
+        endIndex = endIndex[0] + 1
+    }
+
+    var assignmentSpace = -1;
+    for (var i = start; i <= endIndex; i++) {
+        if (assignmentSpace < 0) {
+            //search for the first assignment operator
+            assignmentSpace = inputs[i].trim().indexOf("<=")
+            if (assignmentSpace > 0) {
+                assignmentSpace = assignmentSpace + 3
+                result.push(new FormattedLine(inputs[i], indent));
+            } else {
+                assignmentSpace = inputs[i].trim().indexOf(":=")
+                if (assignmentSpace > 0) {
+                    assignmentSpace = assignmentSpace + 3
+                    result.push(new FormattedLine(inputs[i], indent));
+                }
+            }
+        } else {
+            // assignment found, stuff following lines with spaces
+            inputs[i] = ILForceSpace.repeat(assignmentSpace) + inputs[i]
+            result.push(new FormattedLine(inputs[i], indent));
+        }
+    }
+    i--
+    return i;
+}
+
+exports.beautifyMultilineDefault = beautifyMultilineDefault;
+
+
 function beautifyWithSelect(inputs, result, settings, startIndex, indent) {
     var start = startIndex
     if (inputs[startIndex].regexStartsWith(/(WITH\s+[\w\s\\]+SELECT)/i)) {
@@ -1223,6 +1260,14 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
             var modeCache = Mode;
             Mode = FormatMode.WithSelect;
             i = beautifyWithSelect(inputs, result, settings, i, indent);
+            Mode = modeCache;
+            continue;
+        }
+        if (input.regexStartsWith(/\s*(\bSIGNAL\b|\bCONSTANT\b|\bVARIABLE\b|\bALIAS\b).*:=[^;]+$/)) {
+            // signal or constant assignment on multiple lines
+            var modeCache = Mode;
+            Mode = FormatMode.MultilineAssignment;
+            i = beautifyMultilineDefault(inputs, result, settings, i, indent);
             Mode = modeCache;
             continue;
         }
