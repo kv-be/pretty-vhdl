@@ -978,13 +978,13 @@ function beautifySemicolonBlock(inputs, result, settings, startIndex, parentEndI
         if (((inputs[startIndex].indexOf("<=") > 0))) {
             // in case of a function call, the bracket after the function name is needed.
             inputs[startIndex] = inputs[startIndex].trim()
-            var r = new RegExp(/[\s\S]+?\s*<=\s*[a-zA-Z0-9_]+\s*\( *[a-zA-Z0-9_]+ *(,|downto|to)*/)
+            var r = new RegExp(/[\s\S]+?\s*<=\s*[a-zA-Z0-9_.]+\s*\( *[a-zA-Z0-9_.]+ *(,|downto|to)*/)
             var m = inputs[startIndex].match(r)
             if (m && m.length) {
                 // in case of a function call with argument on the first line
                 // we move the argument to the next line
                 let st = m[0].length - 1
-                let mm = inputs[startIndex].match(/^[\s\S]+?\s*<=\s*[a-zA-Z0-9_]+\s*\( */)
+                let mm = inputs[startIndex].match(/^[\s\S]+?\s*<=\s*[a-zA-Z0-9_.]+\s*\( */)
                 let procCalIndex = 0
                 if (mm) {
                     procCalIndex = mm[0].length
@@ -1003,9 +1003,9 @@ function beautifySemicolonBlock(inputs, result, settings, startIndex, parentEndI
             }
         } else {
             // first check the position of the first argument (on the same line as the proc call or not)
-            if (inputs[startIndex].regexStartsWith(/^[a-zA-Z0-9_]+[\s]*\( *[a-zA-Z0-9_]+ *=*>* *[0-9A-Za-z_]*,/)) {
+            if (inputs[startIndex].regexStartsWith(/^[a-zA-Z0-9_.]+[\s]*\( *[a-zA-Z0-9_.]+ *=*>* *[0-9A-Za-z_.]*,/)) {
                 // in case of a procedure call with argument on the first line, we take the first bracket to align on
-                let m = inputs[startIndex].match(/^[a-zA-Z0-9_]+[\s]*\(/)
+                let m = inputs[startIndex].match(/^[a-zA-Z0-9_.]+[\s]*\(/)
                 let procCalIndex = 0
                 if (m) {
                     procCalIndex = m[0].length
@@ -1105,8 +1105,8 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
         "ASSERT"
     ];
     var functionOrProcedure = [
-        "([a-zA-Z0-9_]+[\\s]*\\(.*)",
-        "(([\\s\\S]+?[\\s]*(<|:)=)[\\s]*[a-zA-Z0-9_]+[\\s]*\\(.*)"
+        "([a-zA-Z0-9_.]+[\\s]*\\(.*)",
+        "(([\\s\\S]+?[\\s]*(<|:)=)[\\s]*[a-zA-Z0-9_.]+[\\s]*\\(.*)"
     ];
     var regexBlockEndsKeyWords = blockEndsKeyWords.convertToRegexBlockWords();
     var regexBlockIndentedEndsKeyWords = indentedEndsKeyWords.convertToRegexBlockWords();
@@ -1232,17 +1232,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
             }
             continue;
         }
-        if (Mode != FormatMode.blockEndsWithSemicolon && input.regexStartsWith(regexblockEndsWithSemicolon)
-            && !(input.regexStartsWith(/port|generic/i))
-            && !(input.regexStartsWith(newLineAfterKeyWordsStr))
-        ) {
-            //if (Mode != FormatMode.EndsWithSemicolon && input.regexStartsWith(regexblockEndsWithSemicolon) ) {
-            var modeCache = Mode;
-            Mode = FormatMode.EndsWithSemicolon;
-            _c = beautifyEntity(inputs, result, settings, i, endIndex, indent), i = _c[0], endIndex = _c[1];
-            Mode = modeCache;
-            continue;
-        }
+
         if (Mode != FormatMode.functionOrProcedure && input.regexStartsWith(regexfunctionOrProcedure)
             && !(input.regexStartsWith(regexKeyword))
             && (input.indexOf("WHEN") === -1)
@@ -1253,6 +1243,18 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
             var modeCache = Mode;
             Mode = FormatMode.EndsWithSemicolon;
             _l = beautifySemicolonBlock(inputs, result, settings, i, endIndex, indent), i = _l[0], endIndex = _l[1], inputs = _l[2];
+            Mode = modeCache;
+            continue;
+        }
+
+        if (Mode != FormatMode.blockEndsWithSemicolon && input.regexStartsWith(regexblockEndsWithSemicolon)
+            && !(input.regexStartsWith(/port|generic/i))
+            && !(input.regexStartsWith(newLineAfterKeyWordsStr))
+        ) {
+            //if (Mode != FormatMode.EndsWithSemicolon && input.regexStartsWith(regexblockEndsWithSemicolon) ) {
+            var modeCache = Mode;
+            Mode = FormatMode.EndsWithSemicolon;
+            _c = beautifyEntity(inputs, result, settings, i, endIndex, indent), i = _c[0], endIndex = _c[1];
             Mode = modeCache;
             continue;
         }
