@@ -975,16 +975,16 @@ function beautifySemicolonBlock(inputs, result, settings, startIndex, parentEndI
     var stuf = ""
     if (startIndex < endIndex) {
         // if a multiline detected
-        if (((inputs[startIndex].indexOf("<=") > 0))) {
+        if (((inputs[startIndex].indexOf("<=") > 0) | (inputs[startIndex].indexOf(":=") > 0))) {
             // in case of a function call, the bracket after the function name is needed.
             inputs[startIndex] = inputs[startIndex].trim()
-            var r = new RegExp(/[\s\S]+?\s*<=\s*[a-zA-Z0-9_.]+\s*\( *[a-zA-Z0-9_.]+ *(,|downto|to)*/)
+            var r = new RegExp(/[\s\S]+?\s*(<|:)=\s*[a-zA-Z0-9_.]+\s*\( *[a-zA-Z0-9_.]+ *(,|downto|to)*/)
             var m = inputs[startIndex].match(r)
             if (m && m.length) {
                 // in case of a function call with argument on the first line
                 // we move the argument to the next line
                 let st = m[0].length - 1
-                let mm = inputs[startIndex].match(/^[\s\S]+?\s*<=\s*[a-zA-Z0-9_.]+\s*\( */)
+                let mm = inputs[startIndex].match(/^[\s\S]+?\s*(<|:)=\s*[a-zA-Z0-9_.]+\s*\( */)
                 let procCalIndex = 0
                 if (mm) {
                     procCalIndex = mm[0].length
@@ -995,7 +995,7 @@ function beautifySemicolonBlock(inputs, result, settings, startIndex, parentEndI
                 inputs = inputs.slice(0, startIndex + 1).concat(arg).concat(inputs.slice(startIndex + 1))
                 endIndex = endIndex + 1;
             }
-            r = new RegExp(/[\s\S]+?\s*<=\s*/)
+            r = new RegExp(/[\s\S]+?\s*(<|:)=\s*/)
             st = inputs[startIndex].match(r)[0].length
             if (st > 0) {
                 // only for function calls, we need to stuff additional spaces
@@ -1058,9 +1058,10 @@ function beautifySemicolonBlock(inputs, result, settings, startIndex, parentEndI
             // case for functions and assignments
             var _a = beautify3(inputs, result, settings, startIndex + 1, indent + 1, endIndex), i = _a[0], endIndex = _a[1], inputs = _a[2];
         } else {
-            var _a = beautify3(inputs, result, settings, startIndex + 1, indent + 1, endIndex - 1), i = _a[0], endIndex = _a[1], inputs = _a[2];
+            var _a = beautify3(inputs, result, settings, startIndex + 1, indent + 1, endIndex), i = _a[0], endIndex = _a[1], inputs = _a[2];
             // set the line below in comments to prevent duplication of the last line of a procedure call without arguments on the first line
             //result.push(new FormattedLine(inputs[endIndex], indent));
+            result[i].Indent--;
         }
     }
     return [endIndex, parentEndIndex + (endIndex - orgEndIndex), inputs];
