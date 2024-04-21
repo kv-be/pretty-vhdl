@@ -870,13 +870,18 @@ function beautifyCaseBlock(inputs, result, settings, startIndex, indent) {
 exports.beautifyCaseBlock = beautifyCaseBlock;
 
 function beautifyWithSelect(inputs, result, settings, startIndex, indent) {
-    result.push(new FormattedLine(inputs[startIndex], indent));
+    var start = startIndex
+    if (inputs[startIndex].regexStartsWith(/(WITH\s+[\w\s\\]+SELECT)/i)) {
+        result.push(new FormattedLine(inputs[startIndex], indent));
+        start++ // in case of with select, only start searching for the <= in the next line
+        // in case of <= when .. else, we start looking from the first line.
+    }
     var endIndex = getSemicolonBlockEndIndex(inputs, settings, startIndex, inputs.length - 1)
     endIndex = endIndex[0] + 1 // include the line containing ;
     var assignmentSpace = -1;
     var whenList = []
     var whenMax = -1
-    for (var i = startIndex + 1; i < endIndex; i++) {
+    for (var i = start; i < endIndex; i++) {
         if (assignmentSpace < 0) {
             //search for the first assignment operator
             assignmentSpace = inputs[i].trim().indexOf("<=")
@@ -895,12 +900,21 @@ function beautifyWithSelect(inputs, result, settings, startIndex, indent) {
         whenList[i] = inputs[i].trim().indexOf("WHEN")
         whenMax = Math.max(whenMax, whenList[i])
     }
-    for (var i = startIndex + 1; i < endIndex; i++) {
+    for (var i = start; i < endIndex; i++) {
         inputs[i] = inputs[i].slice(0, whenList[i]) + ILForceSpace.repeat(whenMax - whenList[i]) + inputs[i].slice(whenList[i])
+        if (start == startIndex) {
+            // in case of <= when ... else
+            result.push(new FormattedLine(inputs[i], indent));
+        }
     }
 
-    var _i = beautify3(inputs, result, settings, startIndex + 1, indent + 1, endIndex), i = _i[0], endIndex = _i[1], inputs = _i[2];
-    result[i].Indent = indent;
+    if (start != startIndex) {
+        // in case of with .. select
+        var _i = beautify3(inputs, result, settings, start, indent + 1, endIndex), i = _i[0], endIndex = _i[1], inputs = _i[2];
+        result[i].Indent = indent;
+    } else {
+        i--
+    }
     return i;
 }
 exports.beautifyWithSelect = beautifyWithSelect;
@@ -1205,19 +1219,20 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
             Mode = modeCache;
             continue;
         }
-        if (input.regexStartsWith(/(WITH\s+[\w\s\\]+SELECT)/)) {
+        if (input.regexStartsWith(/(WITH\s+[\w\s\\]+SELECT)/) || input.regexStartsWith(/.*(<|:)=.*\bWHEN\b.*\bELSE\b/)) {
             var modeCache = Mode;
             Mode = FormatMode.WithSelect;
             i = beautifyWithSelect(inputs, result, settings, i, indent);
             Mode = modeCache;
             continue;
-        } if (input.regexStartsWith(/.*\bWHEN\b.*\bELSE\b/)) {
+        }
+        /*if (input.regexStartsWith(/.*\bWHEN\b.*\bELSE\b/)) {
             var modeCache = Mode;
             _m = beautifyWhenBlock(inputs, result, settings, i, indent), i = _m[0], inputs = _m[1]
             Mode = modeCache;
             continue;
         }
-
+*/
         if (input.regexStartsWith(/.*?\:\=\s*\($/)) {
             _d = beautifyPortGenericBlock(inputs, result, settings, i, endIndex, indent, ":="), i = _d[0], endIndex = _d[1];
             continue;
