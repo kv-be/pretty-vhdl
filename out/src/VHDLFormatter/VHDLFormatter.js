@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.RemoveAsserts = exports.ApplyNoNewLineAfter = exports.beautify3 = exports.beautifySemicolonBlock = exports.beautifyEntity = exports.beautifyComponentBlock = exports.beautifyWhenBlock = exports.beautifyCaseBlock = exports.AlignSign = exports.AlignSigns = exports.beautifyPortGenericBlock = exports.FormattedLineToString = exports.FormattedLine = exports.beautify = exports.BeautifierSettings = exports.signAlignSettings = exports.SetNewLinesAfterSymbols = exports.NewLineSettings = void 0;
+exports.RemoveAsserts = exports.ApplyNoNewLineAfter = exports.beautify3 = exports.beautifySemicolonBlock = exports.beautifyEntity = exports.beautifyComponentBlock = exports.beautifyWhenBlock = exports.beautifyCaseBlock = exports.beautifyWithSelect = exports.AlignSign = exports.AlignSigns = exports.beautifyPortGenericBlock = exports.FormattedLineToString = exports.FormattedLine = exports.beautify = exports.BeautifierSettings = exports.signAlignSettings = exports.SetNewLinesAfterSymbols = exports.NewLineSettings = void 0;
 var isTesting = false;
 var ILEscape = "@@";
 var ILCommentPrefix = ILEscape + "comments";
@@ -537,7 +537,6 @@ function beautify(input, settings) {
     //input = input.replace(/\r\n[ \t]+--\r\n/g, "\r\n");
     input = input.replace(/[ ]+/g, ' ');
     input = input.replace(/[ \t]+\r\n/g, "\r\n");
-    input = input.replace(/\r\n\r\n\r\n/g, '\r\n\r\n'); // remove double empty lines
     //input = input.replace(/[\r\n\s]+$/g, '');
     input = input.replace(/[ \t]+\)/g, ')');
     input = input.replace(/(\s*FUNCTION\s+[\w]+) *\r*\n\s*(RETURN\s+.*;.*)/g, '$1 $2') //function declaration without arguments with return on the next line => stupid so put return behind the function
@@ -559,6 +558,8 @@ function beautify(input, settings) {
     input = input.replace(/(.*;)(.*;)/gi, "$1\r\n$2"); // one executable statement per line
     input = input.replace(/(\s*signal\s+\w+\s*),(\s*\w+\s*):(.*)/gi, "$1 : $3\r\nsignal $2 : $3"); // 2 signals defined on the same line
     input = input.replace(/(\s*variable\s+\w+\s*),(\s*\w+\s*):(.*)/gi, "$1 : $3\r\nvariable $2 : $3"); // 2 signals defined on the same line
+    input = input.replace(/(with\s+\S+\s+\bselect\b)([\s\S\n\r]+?)/gi, "$1\r\n$2");
+    input = input.replace(/\r\n\r\n\r\n/g, '\r\n\r\n'); // remove double empty lines
     input = fix_closing_brackets(input);
 
 
@@ -868,6 +869,42 @@ function beautifyCaseBlock(inputs, result, settings, startIndex, indent) {
 }
 exports.beautifyCaseBlock = beautifyCaseBlock;
 
+function beautifyWithSelect(inputs, result, settings, startIndex, indent) {
+    result.push(new FormattedLine(inputs[startIndex], indent));
+    var endIndex = getSemicolonBlockEndIndex(inputs, settings, startIndex, inputs.length - 1)
+    endIndex = endIndex[0] + 1 // include the line containing ;
+    var assignmentSpace = -1;
+    var whenList = []
+    var whenMax = -1
+    for (var i = startIndex + 1; i < endIndex; i++) {
+        if (assignmentSpace < 0) {
+            //search for the first assignment operator
+            assignmentSpace = inputs[i].trim().indexOf("<=")
+            if (assignmentSpace > 0) {
+                assignmentSpace = assignmentSpace + 3
+            } else {
+                assignmentSpace = inputs[i].trim().indexOf(":=")
+                if (assignmentSpace > 0) {
+                    assignmentSpace = assignmentSpace + 3
+                }
+            }
+        } else {
+            // assignment found, stuff following lines with spaces
+            inputs[i] = ILForceSpace.repeat(assignmentSpace) + inputs[i]
+        }
+        whenList[i] = inputs[i].trim().indexOf("WHEN")
+        whenMax = Math.max(whenMax, whenList[i])
+    }
+    for (var i = startIndex + 1; i < endIndex; i++) {
+        inputs[i] = inputs[i].slice(0, whenList[i]) + ILForceSpace.repeat(whenMax - whenList[i]) + inputs[i].slice(whenList[i])
+    }
+
+    var _i = beautify3(inputs, result, settings, startIndex + 1, indent + 1, endIndex), i = _i[0], endIndex = _i[1], inputs = _i[2];
+    result[i].Indent = indent;
+    return i;
+}
+exports.beautifyWithSelect = beautifyWithSelect;
+
 function beautifyWhenBlock(inputs, result, settings, startIndex, indent) {
     var _a = getSemicolonBlockEndIndex(inputs, settings, startIndex, parentEndIndex), endIndex = _a[0], parentEndIndex = _a[1];
     if (inputs[endIndex].indexOf(";") < 0) {
@@ -1099,7 +1136,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
     var blockEndsKeyWords = ["END", ".*\\)\\s*RETURN\\s+[\\w]+;"]
     var indentedEndsKeyWords = [ILIndentedReturnPrefix + "RETURN\\s+\\w+;"];
     var blockEndsWithSemicolon = [
-        "(WITH\\s+[\\w\\s\\\\]+SELECT)",
+        //"(WITH\\s+[\\w\\s\\\\]+SELECT)",
         "([\\w\\\\]+[\\s]*<=)",
         "([\\w\\\\]+[\\s]*:=)",
         "FOR\\s+[\\w\\s,]+:\\s*\\w+\\s+USE",
@@ -1168,7 +1205,13 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
             Mode = modeCache;
             continue;
         }
-        if (input.regexStartsWith(/.*\bWHEN\b.*\bELSE\b/)) {
+        if (input.regexStartsWith(/(WITH\s+[\w\s\\]+SELECT)/)) {
+            var modeCache = Mode;
+            Mode = FormatMode.WithSelect;
+            i = beautifyWithSelect(inputs, result, settings, i, indent);
+            Mode = modeCache;
+            continue;
+        } if (input.regexStartsWith(/.*\bWHEN\b.*\bELSE\b/)) {
             var modeCache = Mode;
             _m = beautifyWhenBlock(inputs, result, settings, i, indent), i = _m[0], inputs = _m[1]
             Mode = modeCache;
