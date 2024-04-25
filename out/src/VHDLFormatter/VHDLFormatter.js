@@ -17,6 +17,12 @@ var FormatMode;
     FormatMode[FormatMode["CaseWhen"] = 2] = "CaseWhen";
     FormatMode[FormatMode["IfElse"] = 3] = "IfElse";
     FormatMode[FormatMode["PortGeneric"] = 4] = "PortGeneric";
+    FormatMode[FormatMode["functionOrProcedure"] = 5] = "functionOrProcedure";
+    FormatMode[FormatMode["WithSelect"] = 6] = "WithSelect";
+    FormatMode[FormatMode["MultilineAssignment"] = 7] = "MultilineAssignment";
+    /*FormatMode[FormatMode["MultilineAssignment"] = 7] = "MultilineAssignment";
+    FormatMode[FormatMode["MultilineAssignment"] = 7] = "MultilineAssignment";
+    FormatMode[FormatMode["MultilineAssignment"] = 7] = "MultilineAssignment";*/
 })(FormatMode || (FormatMode = {}));
 var Mode = FormatMode.Default;
 var NewLineSettings = /** @class */ (function () {
@@ -875,7 +881,7 @@ function beautifyMultilineDefault(inputs, result, settings, startIndex, indent) 
     var endIndex = getSemicolonBlockEndIndex(inputs, settings, startIndex, inputs.length - 1)
     endIndex = endIndex[0]
     if (inputs[endIndex].indexOf(";") < 0) {
-        endIndex = endIndex[0] + 1
+        endIndex = endIndex + 1
     }
 
     var assignmentSpace = -1;
@@ -1167,7 +1173,8 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
         "CASE",
         "ARCHITECTURE",
         "PROCEDURE",
-        "PACKAGE",
+        "PACKAGE\\s+[\\w]+\\s+IS\\s*$", // changed to prevent that package is new work.tdi_pkg generic map(<>) is not triggered
+        "PACKAGE\\s+BODY\\s+[\\w]+\\s+IS\\s*$", // changed to prevent that package is new work.tdi_pkg generic map(<>) is not triggered
         "(([\\w\\s]*:)?(\\s)*PROCESS)",
         "(([\\w\\s]*:)?(\\s)*POSTPONED PROCESS)",
         "(.*\\s*PROTECTED)",
@@ -1180,7 +1187,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
         "(CONFIGURATION(?!.+;))",
         "BLOCK",
         "UNITS",
-        "\\w+\\s+\\w+\\s+IS\\s+\bRECORD\b"
+        "\\w+\\s+\\w+\\s+IS\\s+\\bRECORD\\b"
     ];
 
     //var blockEndsKeyWords = ["END", ".*\\)\\s*RETURN\\s+[\\w]+;", "[\\s]*\\)+[\\s]*;"]
@@ -1222,7 +1229,9 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
     if (endIndex == null) {
         endIndex = inputs.length - 1;
     }
+    var a = 0
     for (i = startIndex; i <= endIndex; i++) {
+        a = i
         if (indent < 0) {
             indent = 0;
         }
@@ -1345,7 +1354,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
         ) {
             //multiline function or procedure or assignment
             var modeCache = Mode;
-            Mode = FormatMode.EndsWithSemicolon;
+            Mode = FormatMode.functionOrProcedure;
             _l = beautifySemicolonBlock(inputs, result, settings, i, endIndex, indent), i = _l[0], endIndex = _l[1], inputs = _l[2];
             Mode = modeCache;
             continue;
@@ -1362,7 +1371,6 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
             Mode = modeCache;
             continue;
         }
-
         result.push(new FormattedLine(input, indent));
         if (startIndex != 0
             && (input.regexStartsWith(regexBlockMidKeyWords)
