@@ -920,7 +920,11 @@ function beautifyWithSelect(inputs, result, settings, startIndex, indent) {
         // in case of <= when .. else, we start looking from the first line.
     }
     var endIndex = getSemicolonBlockEndIndex(inputs, settings, startIndex, inputs.length - 1)
-    endIndex = endIndex[0] + 1 // include the line containing ;
+    if (inputs[endIndex[0]].indexOf(";") < 0) {
+        endIndex = endIndex[0] + 1 // include the line containing ;
+    } else {
+        endIndex = endIndex[0]
+    }
     var assignmentSpace = -1;
     var whenList = []
     var whenMax = -1
@@ -950,7 +954,7 @@ function beautifyWithSelect(inputs, result, settings, startIndex, indent) {
             result.push(new FormattedLine(inputs[i], indent));
         }
     }
-
+    inputs[i] = ILForceSpace.repeat(assignmentSpace) + inputs[i]
     if (start != startIndex) {
         // in case of with .. select
         var _i = beautify3(inputs, result, settings, start, indent + 1, endIndex), i = _i[0], endIndex = _i[1], inputs = _i[2];
