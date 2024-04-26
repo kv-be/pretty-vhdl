@@ -928,7 +928,7 @@ function beautifyWithSelect(inputs, result, settings, startIndex, indent) {
     var assignmentSpace = -1;
     var whenList = []
     var whenMax = -1
-    for (var i = start; i < endIndex; i++) {
+    for (var i = start; i <= endIndex; i++) {
         if (assignmentSpace < 0) {
             //search for the first assignment operator
             assignmentSpace = inputs[i].trim().indexOf("<=")
@@ -947,14 +947,15 @@ function beautifyWithSelect(inputs, result, settings, startIndex, indent) {
         whenList[i] = inputs[i].trim().indexOf("WHEN")
         whenMax = Math.max(whenMax, whenList[i])
     }
-    for (var i = start; i < endIndex; i++) {
-        inputs[i] = inputs[i].slice(0, whenList[i]) + ILForceSpace.repeat(whenMax - whenList[i]) + inputs[i].slice(whenList[i])
+    for (var i = start; i <= endIndex; i++) {
+        if (whenList[i] >= 0) {
+            inputs[i] = inputs[i].slice(0, whenList[i]) + ILForceSpace.repeat(whenMax - whenList[i]) + inputs[i].slice(whenList[i])
+        }
         if (start == startIndex) {
             // in case of <= when ... else
             result.push(new FormattedLine(inputs[i], indent));
         }
     }
-    inputs[i] = ILForceSpace.repeat(assignmentSpace) + inputs[i]
     if (start != startIndex) {
         // in case of with .. select
         var _i = beautify3(inputs, result, settings, start, indent + 1, endIndex), i = _i[0], endIndex = _i[1], inputs = _i[2];
