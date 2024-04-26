@@ -304,8 +304,8 @@ function fix_closing_brackets(input) {
 
     input = input.replace(/\);{1}([^;^\^\n)]*?\n+\s*(port|generic)\s*\()/gi, "\r\n);$1") // generic with closing bracket on the same line as last assingment
     input = input.replace(/\){1}([^,^\^\n)]*?\n+\s*(port|generic)\s+map\s*\()/gi, "\r\n)$1") // generic with closing bracket on the same line as last assingment
-    input = input.replace(/(?!.*<>\))(\s*(port|generic)\s+map[\s\S\n]+?)\);(.*)/gi, "$1\r\n);$3"); // closing port map bracket not on seperate line
-    input = input.replace(/(?!.*<>\))(\s*(port|generic)\s+map[\s\S\n]+?)\);(.*)/gi, "$1\r\n);$3"); // closing port map bracket not on seperate line
+    input = input.replace(/\s*(?!.*<>\))(\r*\n\s*(port|generic)\s+map[\s\S\n]+?)\);(.*)/gi, "$1\r\n);$3"); // closing port map bracket not on seperate line
+    input = input.replace(/\s*(?!.*<>\))(\r*\n\s*(port|generic)\s+map[\s\S\n]+?)\);(.*)/gi, "$1\r\n);$3"); // closing port map bracket not on seperate line
     //deze lijn geeft een heel raar probleem met een generic package=> zie tmp.vhd of in image_format_pkg.vhd van 874
     //de lijn hieronder zet het sluitend haakje van de port declaratie van een ENTITY op een nieuwe lijn
     input = input.replace(/((entity|component)\s*[A-Za-z0-9_]+\s*is\s*(port|generic)\s*\([\s\S\n]+?)[\)]?;([^\)]+?(\bend|\breport|\bassert)\s+)/gi, "$1\r\n);$4"); // force closing port bracket on next line
