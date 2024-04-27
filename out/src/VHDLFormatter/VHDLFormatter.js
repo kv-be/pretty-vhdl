@@ -560,6 +560,11 @@ function beautify(input, settings) {
     input = input.replace(/WHEN *(\S+) *=> *([^;]+@@.*$)/gi, "WHEN $1 =>\r\n$2") // when followed by something and ending in a comment
     input = input.replace(/WHEN *(\S+) *=> *((?!.*@@)[^;]+$)/gi, "WHEN $1 =>\r\n$2") // when followed by not a comment
 
+    // line starting with procedure and not containing IS
+    input = input.replace(/(?!(\bis\b|;))(\s*PROCEDURE[\s\w]+?\()([^(@@|\r*\n)]+?)\r*\n/gi, "$2\r\n$3\r\n") //force multiline procedures to put arguments on the next line
+    // line not containing keywords and ending in ) is
+    input = input.replace(/(?!\b(function|procedure|subtype|type|alias|component|architecture|entity))(.*?)\)\s*(\bis\b.*)\r*\n/gi, "$2\r\n\) $3\r\n") //force the closing ") is" on a new line
+    //    ^ (? !\b(function| procedure)) (.*\s *\bis\b)
 
     input = input.replace(/(.*;)(.*;)/gi, "$1\r\n$2"); // one executable statement per line
     input = input.replace(/(\s*signal\s+\w+\s*),(\s*\w+\s*):(.*)/gi, "$1 : $3\r\nsignal $2 : $3"); // 2 signals defined on the same line
@@ -755,6 +760,17 @@ function beautifyPortGenericBlock(inputs, result, settings, startIndex, parentEn
             endIndex++;
             parentEndIndex++;
         }
+    }
+    if (startIndex < endIndex && inputs[endIndex].trim().indexOf(");") > 0) {
+        inputs[endIndex] = inputs[endIndex].replace(/(.*)(\);.*)/, '$1\r\n$2');
+        var newInputs = inputs[endIndex].split("\r\n");
+        if (newInputs.length == 2) {
+            inputs[endIndex] = newInputs[0];
+            inputs.splice(endIndex + 1, 0, newInputs[1]);
+            endIndex++;
+            parentEndIndex++;
+        }
+
     }
     if (firstLineHasParenthese && inputs[startIndex].indexOf("MAP") > 0) {
         inputs[startIndex] = inputs[startIndex].replace(/([^\w])(MAP)\s+\(/g, '$1$2(');
@@ -1315,7 +1331,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
             }
             continue;
         }
-        if (input.regexStartsWith(/[\w\s:]*PROCEDURE[\s\w]+\($/)) {
+        if (input.regexStartsWith(/^(?!.*\bis$)PROCEDURE[\s\w]+\(.*/)) {
             _h = beautifyPortGenericBlock(inputs, result, settings, i, endIndex, indent, "PROCEDURE"), i = _h[0], endIndex = _h[1];
             if (inputs[i].regexStartsWith(/.*\)[\s]*IS/)) {
                 _o = beautify3(inputs, result, settings, i + 1, indent + 1), i = _o[0], endIndex = _o[1], inputs = _o[2];
@@ -1399,7 +1415,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
         }
         if (input.regexStartsWith(regexFunctionMultiLineBlockKeyWords)
             || (input.regexStartsWith(regexBlockStartsKeywords)) && input.indexOf(";") < 0) {
-            _r = beautify3(inputs, result, settings, i + 1, indent + 1), i = _r[0], endIndex = _r[1], inputs = _r[2];;
+            _r = beautify3(inputs, result, settings, i + 1, result[i].Indent + 1), i = _r[0], endIndex = _r[1], inputs = _r[2];;
         }
     }
     i--;
