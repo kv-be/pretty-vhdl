@@ -563,17 +563,17 @@ function beautify(input, settings) {
     // line starting with procedure and not containing IS
     input = input.replace(/(?!(\bis\b|;))(\s*PROCEDURE[\s\w]+?\()([^(@@|\r*\n)]+?)\r*\n/gi, "$2\r\n$3\r\n") //force multiline procedures to put arguments on the next line
     // line not containing keywords and ending in ) is
-    input = input.replace(/(?!\b(function|procedure|subtype|type|alias|component|architecture|entity))(.*?)\)\s*(\bis\b.*)\r*\n/gi, "$2\r\n\) $3\r\n") //force the closing ") is" on a new line
+    input = input.replace(/\r*\n\s*(?!\b(function|procedure|subtype|type|alias|component|architecture|case|entity)\s)(.*?)\)\s*(\bis\b.*)\r*\n/gi, "$2\r\n\) $3\r\n") //force the closing ") is" on a new line
     //    ^ (? !\b(function| procedure)) (.*\s *\bis\b)
     // line starting with procedure and not containing IS
-    input = input.replace(/(?!(\bis\b|;))(\s*PROCEDURE[\s\w]+?\()([^(@@|\r*\n)]+?)\r*\n/gi, "$2\r\n$3\r\n") //force multiline procedures to put arguments on the next line
+    input = input.replace(/\r*\n\s*(?!(\bis\b|;))(\s*PROCEDURE[\s\w]+?\()([^(@@|\r*\n)]+?)\r*\n/gi, "$2\r\n$3\r\n") //force multiline procedures to put arguments on the next line
     // line not containing keywords and ending in ) is
-    input = input.replace(/(?!\b(function|procedure|subtype|type|alias|component|architecture|entity))(.*?)\)\s*(\bis\b.*)\r*\n/gi, "$2\r\n\) $3\r\n") //force the closing ") is" on a new line
+    input = input.replace(/\r*\n\s*(?!\b(function|procedure|subtype|type|alias|component|architecture|case|entity))(.*?)\)\s*(\bis\b.*)\r*\n/gi, "$2\r\n\) $3\r\n") //force the closing ") is" on a new line
     //    ^ (? !\b(function| procedure)) (.*\s *\bis\b)
 
     input = input.replace(/(.*;)(.*;)/gi, "$1\r\n$2"); // one executable statement per line
-    input = input.replace(/(\s*signal\s+\w+\s*),(\s*\w+\s*):(.*)/gi, "$1 : $3\r\nsignal $2 : $3"); // 2 signals defined on the same line
-    input = input.replace(/(\s*variable\s+\w+\s*),(\s*\w+\s*):(.*)/gi, "$1 : $3\r\nvariable $2 : $3"); // 2 signals defined on the same line
+    input = input.replace(/\s*(signal\s+\w+)\s*,\s*(\w+)\s*:\s*(.*)/gi, "\r\n$1 : $3\r\nsignal $2 : $3"); // 2 signals defined on the same line
+    input = input.replace(/\s*(variable\s+\w+)\s*,\s*(\w+)\s*:\s*(.*)/gi, "\r\n$1 : $3\r\nvariable $2 : $3"); // 2 signals defined on the same line
     input = input.replace(/(with\s+\S+\s+\bselect\b)([\s\S\n\r]+?)/gi, "$1\r\n$2");
     input = input.replace(/\r\n\r\n\r\n/g, '\r\n\r\n'); // remove double empty lines
     input = fix_closing_brackets(input);
@@ -823,8 +823,8 @@ function beautifyPortGenericBlock(inputs, result, settings, startIndex, parentEn
 }
 exports.beautifyPortGenericBlock = beautifyPortGenericBlock;
 function AlignSigns(result, startIndex, endIndex, mode) {
-    AlignSign_(result, startIndex, endIndex, ":", mode);
-    AlignSign_(result, startIndex, endIndex, "(:|<)=", mode, "WHEN");
+    AlignSign_(result, startIndex, endIndex, ":", mode, "\\bIS\\b"); // except IS added to prevent var declarations in functions or procedures align to arguments defs
+    AlignSign_(result, startIndex, endIndex, "(:|<)=", mode, "\\bWHEN\\b");
     AlignSign_(result, startIndex, endIndex, "=>", mode);
     //AlignSign_(result, startIndex, endIndex, "<=", mode);
     //AlignSign_(result, startIndex, endIndex, "<=", mode);
@@ -848,11 +848,11 @@ function AlignSign_(result, startIndex, endIndex, symbol, mode, exclude) {
         if (symbol == ":" && line.regexStartsWith(labelAndKeywordsRegex)) {
             continue;
         }
-        //var regex = new RegExp("([\\s\\w\\\\]|^)" + symbol + "([\\s\\w\\\\]|$)");
+        // why is this????
         var regex = new RegExp("(?<=([\\s\\S\\\\]|^))" + symbol + "(?=[^=]+|$)");
-        if (line.regexCount(regex) > 1) {
+        /*if (line.regexCount(regex) > 1) {
             continue;
-        }
+        }*/
         var colonIndex = line.regexIndexOf(regex);
 
         if (colonIndex > 0 && (line.indexOf(exclude) == -1)) {
