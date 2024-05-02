@@ -843,6 +843,7 @@ function AlignSign_(result, startIndex, endIndex, symbol, mode, exclude) {
     ];
     var labelAndKeywordsStr = labelAndKeywords.join("|");
     var labelAndKeywordsRegex = new RegExp("(" + labelAndKeywordsStr + ")([^\\w]|$)");
+    var colonIndex = 0
     for (var i = startIndex; i <= endIndex; i++) {
         var line = result[i].Line;
         if (symbol == ":" && line.regexStartsWith(labelAndKeywordsRegex)) {
@@ -853,12 +854,29 @@ function AlignSign_(result, startIndex, endIndex, symbol, mode, exclude) {
         /*if (line.regexCount(regex) > 1) {
             continue;
         }*/
-        var colonIndex = line.regexIndexOf(regex);
 
-        if (colonIndex > 0 && (line.indexOf(exclude) == -1)) {
+        if (colonIndex > 0 && (line.search(exclude) == -1)) {
             //the WHEN lines in a case do
             maxSymbolIndex = Math.max(maxSymbolIndex, colonIndex);
             symbolIndices[i] = colonIndex;
+            if ((symbol === "(:|<)=") && (result[i].Line.indexOf(";") < 0)) {
+                var m = line.match(/([ ]+) :/) //[1].length
+                var spaces = 0
+                if (m) {
+                    spaces = m[1].length
+                }
+                //if assignment found not ending in ; => multiline, so search for ending ;
+                do {
+                    if (i < endIndex) {
+                        i++
+                        //by setting the symbolIndex to -colonIndex tells to the AlignSign to just add spaces
+
+                        symbolIndices[i] = colonIndex * -1 + spaces;
+                    } else {
+                        break;
+                    }
+                } while (result[i].Line.indexOf(";") < 0)
+            }
         }
         else if ((mode != "local" && !line.startsWith(ILCommentPrefix) && line.length != 0)
             || (mode == "local")) {
@@ -890,9 +908,23 @@ function AlignSign(result, startIndex, endIndex, symbol, maxSymbolIndex, symbolI
             continue;
         }
         var line = result[lineIndex].Line;
+        var noSpaces = maxSymbolIndex - symbolIndex + 1
+        var spaces = result[lineIndex].Line.search(/([ ]+) :/)
+        if (symbolIndex < 0) {
+            // if symbolIndex < 0, it means the line only needs spaces in front
+            noSpaces = maxSymbolIndex + symbolIndex + 1
+        }
         result[lineIndex].Line = line.substring(0, symbolIndex)
-            + (Array(maxSymbolIndex - symbolIndex + 1).join(" "))
+            + (Array(noSpaces).join(" "))
             + line.substring(symbolIndex);
+        // if the current line doesn't stop on ;, continue to add spaces in front of the next lines until a line with a ; is found
+        /*if ((result[lineIndex].Line.indexOf(";") < 0) && (symbol === '(:|<)=')) {
+            var i = 1
+            do {
+                result[parseInt(lineIndex) + i].Line = Array(maxSymbolIndex - symbolIndex + 1).join(" ") + result[parseInt(lineIndex) + i].Line
+                i++
+            } while ((result[parseInt(lineIndex) + i - 1].Line.indexOf(";") < 0) && ((parseInt(lineIndex) + i - 1) < result.length))
+        }*/
     }
 }
 exports.AlignSign = AlignSign;
