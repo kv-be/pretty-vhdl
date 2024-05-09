@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.RemoveAsserts = exports.ApplyNoNewLineAfter = exports.beautify3 = exports.beautifySemicolonBlock = exports.beautifyEntity = exports.beautifyComponentBlock = exports.beautifyWhenBlock = exports.beautifyCaseBlock = exports.beautifyWithSelect = exports.beautifyMultilineDefault = exports.AlignSign = exports.AlignSigns = exports.beautifyPortGenericBlock = exports.FormattedLineToString = exports.FormattedLine = exports.beautify = exports.BeautifierSettings = exports.signAlignSettings = exports.SetNewLinesAfterSymbols = exports.NewLineSettings = void 0;
+exports.RemoveAsserts = exports.ApplyNoNewLineAfter = exports.beautify3 = exports.beautifySemicolonBlock = exports.countOpenBrackets = exports.beautifyEntity = exports.beautifyComponentBlock = exports.beautifyWhenBlock = exports.beautifyCaseBlock = exports.beautifyWithSelect = exports.beautifyMultilineDefault = exports.AlignSign = exports.AlignSigns = exports.beautifyPortGenericBlock = exports.FormattedLineToString = exports.FormattedLine = exports.beautify = exports.BeautifierSettings = exports.signAlignSettings = exports.SetNewLinesAfterSymbols = exports.NewLineSettings = void 0;
 var isTesting = false;
 var ILEscape = "@@";
 var ILCommentPrefix = ILEscape + "comments";
@@ -843,7 +843,8 @@ function AlignSign_(result, startIndex, endIndex, symbol, mode, exclude, indenta
       "([\\w\\s]*:(\\s)*PROCESS)",
       "([\\w\\s]*:(\\s)*POSTPONED PROCESS)",
       "([\\w\\s]*:\\s*$)",
-      "([\\w\\s]*:.*\\s+GENERATE)"
+      "([\\w\\s]*:.*\\s+GENERATE)",
+      "(PROCEDURE|FUNCTION)\\s+[\\w]+\\s*\\(.*"   // to filter out one line procedure/functions declarations containing default values
    ];
    var labelAndKeywordsStr = labelAndKeywords.join("|");
    var labelAndKeywordsRegex = new RegExp("(" + labelAndKeywordsStr + ")([^\\w]|$)");
@@ -854,7 +855,7 @@ function AlignSign_(result, startIndex, endIndex, symbol, mode, exclude, indenta
    }
    for (var i = startIndex; i <= endIndex; i++) {
       var line = result[i].Line;
-      if (symbol == ":" && line.regexStartsWith(labelAndKeywordsRegex)) {
+      if (((symbol == ":") || (symbol == "(:|<)=")) && line.regexStartsWith(labelAndKeywordsRegex)) {
          continue;
       }
       // why is this????
@@ -1260,6 +1261,21 @@ function beautifySemicolonBlock(inputs, result, settings, startIndex, parentEndI
    return [endIndex, parentEndIndex + (endIndex - orgEndIndex), inputs];
 }
 exports.beautifySemicolonBlock = beautifySemicolonBlock;
+
+function countOpenBrackets(input) {
+   var brackets = 0
+   for (var j = 0; j < input.length; j++) {
+      if (input[j] === "(") {
+         brackets = brackets + 1
+      }
+      if (input[j] === ")") {
+         brackets = brackets - 1
+      }
+   }
+   return brackets
+}
+exports.countOpenBrackets = countOpenBrackets;
+
 function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
    //var oldInstanceAlignment = false
    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t;
@@ -1464,12 +1480,15 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          && (input.indexOf("ELSE") === -1)
          && !(input.regexStartsWith(newLineAfterKeyWordsStr))
       ) {
-         //multiline function or procedure or assignment
+         //multiline function or procedure or assignment or slice of a port assignment  f(0) => '0' 
          var modeCache = Mode;
-         Mode = FormatMode.functionOrProcedure;
-         _l = beautifySemicolonBlock(inputs, result, settings, i, endIndex, indent), i = _l[0], endIndex = _l[1], inputs = _l[2];
-         Mode = modeCache;
-         continue;
+         var brackets = countOpenBrackets(input)
+         if (brackets > 0) {
+            Mode = FormatMode.functionOrProcedure;
+            _l = beautifySemicolonBlock(inputs, result, settings, i, endIndex, indent), i = _l[0], endIndex = _l[1], inputs = _l[2];
+            Mode = modeCache;
+            continue;
+         }
       }
 
       if (Mode != FormatMode.blockEndsWithSemicolon && input.regexStartsWith(regexblockEndsWithSemicolon)
