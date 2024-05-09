@@ -831,7 +831,7 @@ function AlignSigns(result, startIndex, endIndex, mode, indentation) {
    // except ) at the beginning of the line is to break allignment for signals with multiline defaults
    // except procedure or function at the beginning of the line is to prevent that arguments of procs or functions are aliggned with signals above
    AlignSign_(result, startIndex, endIndex, ":", mode, "(\\bIS\\b|^\\s*\\)|(^\\s*PROCEDURE)|(^\\s*FUNCTION))", indentation);
-   AlignSign_(result, startIndex, endIndex, "(:|<)=", mode, "(\\bWHEN\\b|\\s*\\))", indentation);
+   AlignSign_(result, startIndex, endIndex, "(:|<)=", mode, "(\\bWHEN\\b|^\\s*\\))", indentation);
    AlignSign_(result, startIndex, endIndex, "=>", mode, "", indentation);
    //AlignSign_(result, startIndex, endIndex, "<=", mode);
    //AlignSign_(result, startIndex, endIndex, "<=", mode);
