@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.RemoveAsserts = exports.ApplyNoNewLineAfter = exports.beautify3 = exports.beautifySemicolonBlock = exports.countOpenBrackets = exports.beautifyEntity = exports.beautifyComponentBlock = exports.beautifyWhenBlock = exports.beautifyCaseBlock = exports.beautifyWithSelect = exports.beautifyMultilineDefault = exports.AlignSign = exports.AlignSigns = exports.beautifyPortGenericBlock = exports.FormattedLineToString = exports.FormattedLine = exports.beautify = exports.BeautifierSettings = exports.signAlignSettings = exports.SetNewLinesAfterSymbols = exports.NewLineSettings = void 0;
+exports.RemoveAsserts = exports.ApplyNoNewLineAfter = exports.beautify3 = exports.beautifySemicolonBlock = exports.containsBeforeNextSemicolon = exports.countOpenBrackets = exports.beautifyEntity = exports.beautifyComponentBlock = exports.beautifyWhenBlock = exports.beautifyCaseBlock = exports.beautifyWithSelect = exports.beautifyMultilineDefault = exports.AlignSign = exports.AlignSigns = exports.beautifyPortGenericBlock = exports.FormattedLineToString = exports.FormattedLine = exports.beautify = exports.BeautifierSettings = exports.signAlignSettings = exports.SetNewLinesAfterSymbols = exports.NewLineSettings = void 0;
 var isTesting = false;
 var ILEscape = "@@";
 var ILCommentPrefix = ILEscape + "comments";
@@ -827,8 +827,11 @@ function beautifyPortGenericBlock(inputs, result, settings, startIndex, parentEn
 }
 exports.beautifyPortGenericBlock = beautifyPortGenericBlock;
 function AlignSigns(result, startIndex, endIndex, mode, indentation) {
-   AlignSign_(result, startIndex, endIndex, ":", mode, "\\bIS\\b", indentation); // except IS added to prevent var declarations in functions or procedures align to arguments defs
-   AlignSign_(result, startIndex, endIndex, "(:|<)=", mode, "\\bWHEN\\b", indentation);
+   // except IS added to prevent var declarations in functions or procedures align to arguments defs
+   // except ) at the beginning of the line is to break allignment for signals with multiline defaults
+   // except procedure or function at the beginning of the line is to prevent that arguments of procs or functions are aliggned with signals above
+   AlignSign_(result, startIndex, endIndex, ":", mode, "(\\bIS\\b|^\\s*\\)|(^\\s*PROCEDURE)|(^\\s*FUNCTION))", indentation);
+   AlignSign_(result, startIndex, endIndex, "(:|<)=", mode, "(\\bWHEN\\b|\\s*\\))", indentation);
    AlignSign_(result, startIndex, endIndex, "=>", mode, "", indentation);
    //AlignSign_(result, startIndex, endIndex, "<=", mode);
    //AlignSign_(result, startIndex, endIndex, "<=", mode);
@@ -850,13 +853,15 @@ function AlignSign_(result, startIndex, endIndex, symbol, mode, exclude, indenta
    var labelAndKeywordsRegex = new RegExp("(" + labelAndKeywordsStr + ")([^\\w]|$)");
    var colonIndex = 0
    var maxIndent = 0
+   var forcedBlockEnd = false
    if (typeof exclude === 'undefined') {
       exclude = /\r\r/
    }
    for (var i = startIndex; i <= endIndex; i++) {
       var line = result[i].Line;
+
       if (((symbol == ":") || (symbol == "(:|<)=")) && line.regexStartsWith(labelAndKeywordsRegex)) {
-         continue;
+         forcedBlockEnd = true;
       }
       // why is this????
       var regex = new RegExp("(?<=([\\s\\S\\\\]|^))" + symbol + "(?=[^=]+|$)");
@@ -864,7 +869,7 @@ function AlignSign_(result, startIndex, endIndex, symbol, mode, exclude, indenta
           continue;
       }*/
       var colonIndex = line.regexIndexOf(regex);
-      if (colonIndex > 0 && (line.search(exclude) < 0)) {
+      if (colonIndex > 0 && (line.search(exclude) < 0) && !forcedBlockEnd) {
          //the WHEN lines in a case do
          maxSymbolIndex = Math.max(maxSymbolIndex, colonIndex);
          maxIndent = Math.max(maxIndent, result[i].Indent);
@@ -904,6 +909,8 @@ function AlignSign_(result, startIndex, endIndex, symbol, mode, exclude, indenta
          maxSymbolIndex = -1;
          symbolIndices = {};
          startLine = i;
+         maxIndent = -1
+         forcedBlockEnd = false
       }
    }
    if (startLine < endIndex) // if cannot find the symbol, a block of symbols ends
@@ -967,6 +974,16 @@ function beautifyCaseBlock(inputs, result, settings, startIndex, indent) {
 }
 exports.beautifyCaseBlock = beautifyCaseBlock;
 
+function getMatchingClosingBrackets(inputs, startIndex) {
+   var bracketlevel = 0
+   for (var i = startIndex; i < inputs.length; i++) {
+      bracketlevel = bracketlevel + countOpenBrackets(inputs[i])
+      if (bracketlevel <= 0) { // smaller or equal since if a line starts with a closing bracket, we are doomed
+         return i
+      }
+   }
+   return -1
+}
 
 function beautifyMultilineDefault(inputs, result, settings, startIndex, indent) {
    var start = startIndex
@@ -990,6 +1007,9 @@ function beautifyMultilineDefault(inputs, result, settings, startIndex, indent) 
                assignmentSpace = assignmentSpace + 3
                result.push(new FormattedLine(inputs[i], indent));
             }
+            else {
+               result.push(new FormattedLine(inputs[i], indent));
+            }
          }
       } else {
          // assignment found, stuff following lines with spaces
@@ -1002,7 +1022,57 @@ function beautifyMultilineDefault(inputs, result, settings, startIndex, indent) 
 }
 
 exports.beautifyMultilineDefault = beautifyMultilineDefault;
+/*
 
+// this code supports multiple function calls in signal assignments, but removes the nice allignment of e.g. arrays
+
+function beautifyMultilineDefault(inputs, result, settings, startIndex, indent) {
+   var start = startIndex
+   var endIndex = getNextSymbolIndex(inputs, startIndex, ";")
+   if (endIndex >= 0) {
+      if (inputs[endIndex].indexOf(";") < 0) {
+         endIndex = endIndex + 1
+      }
+   } else {
+      endIndex = getMatchingClosingBrackets(inputs, startIndex)
+      if (endIndex === -1) {
+         endIndex = startIndex
+      }
+   }
+   var assignmentSpace = -1;
+   if ((countOpenBrackets(inputs[startIndex]) > 0) || (getNextSymbolIndex([inputs[startIndex]], startIndex, ":=") > -1)) { // opening brackets
+      //missing closing bracket => so keep the current line, add indent for all following ones
+      var i = startIndex
+      result.push(new FormattedLine(inputs[i], indent));
+      do {
+         i = beautifyMultilineDefault(inputs, result, settings, i + 1, indent + 1)
+      } while (i < endIndex)
+      return i;
+   } else {
+      if ((countOpenBrackets(inputs[startIndex]) < 0) || (getNextSymbolIndex([inputs[startIndex]], startIndex, ";") > -1)) { // closing brackets
+         var i = startIndex
+         result.push(new FormattedLine(inputs[i], indent - 1));
+         do {
+            i = beautifyMultilineDefault(inputs, result, settings, i + 1, indent - 1)
+         } while (i < endIndex)
+         return i
+      } else {
+         if (assignmentSpace < 0) {  // when no assignments found, copy the lines
+            for (var i = start; i <= endIndex; i++) {
+               result.push(new FormattedLine(inputs[i], indent));
+            }
+            i--
+            return i;
+         } else {
+            i--
+            return i;
+         }
+
+      }
+   }
+}
+exports.beautifyMultilineDefault = beautifyMultilineDefault;
+*/
 
 function beautifyWithSelect(inputs, result, settings, startIndex, indent) {
    var start = startIndex
@@ -1276,6 +1346,33 @@ function countOpenBrackets(input) {
 }
 exports.countOpenBrackets = countOpenBrackets;
 
+function containsBeforeNextSemicolon(inputs, startindex, symbol) {
+   var j = startindex
+   var text = ""
+   do {
+      j++
+      text = text + " " + inputs[j]
+   } while ((text.indexOf(";") < 0) && (j < inputs.length));
+
+   if (text.match(symbol)) { // if the text doesn't contain IS, the line is a multiline declaration. In the other case, it is the last line of a function or procedure declaration.
+      return true
+   } else {
+      return false
+   }
+}
+exports.containsBeforeNextSemicolon = containsBeforeNextSemicolon;
+
+function getNextSymbolIndex(inputs, startindex, symbol) {
+   var j = startindex
+   for (j = startindex; j < inputs.length; j++) {
+      if (inputs[j].indexOf(symbol) >= 0) {
+         return j
+      }
+   }
+   return -1
+}
+exports.getNextSymbolIndex = getNextSymbolIndex;
+
 function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
    //var oldInstanceAlignment = false
    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t;
@@ -1387,18 +1484,9 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          Mode = modeCache;
          continue;
       }
-      if (input.regexStartsWith(/\s*(\bSIGNAL\b|\bCONSTANT\b|\bVARIABLE\b|\bALIAS\b).*:=[^;]+$/)) {
+      if (input.regexStartsWith(/\s*(\bSIGNAL\b|\bCONSTANT\b|\bVARIABLE\b|\bALIAS\b).*:[^;]+$/)) {
          // signal or constant assignment on multiple lines IF not part of an argument list of a function or procedure!!!
-         var text = ""
-         var j = i
-         do {
-            j++
-            text = text + inputs[j]
-         } while ((text.indexOf(";") > 0) && (j < inputs.length));
-
-         if (text.match(/\b(IS)\b/)) { // if the text doesn't contain IS, the line is a multiline declaration. In the other case, it is the last line of a function or procedure declaration.
-            j = i // dummy. In this case we don't need to do anything
-         } else {
+         if (!containsBeforeNextSemicolon(inputs, i, /\bIS\b/)) { // if the text doesn't contain IS, the line is a multiline declaration. In the other case, it is the last line of a function or procedure declaration.
             var modeCache = Mode;
             Mode = FormatMode.MultilineAssignment;
             i = beautifyMultilineDefault(inputs, result, settings, i, indent);
