@@ -825,13 +825,15 @@ function beautifyPortGenericBlock(inputs, result, settings, startIndex, parentEn
    }
    return [i, parentEndIndex];
 }
+
+
 exports.beautifyPortGenericBlock = beautifyPortGenericBlock;
 function AlignSigns(result, startIndex, endIndex, mode, indentation) {
    // except IS added to prevent var declarations in functions or procedures align to arguments defs
    // except ) at the beginning of the line is to break allignment for signals with multiline defaults
    // except procedure or function at the beginning of the line is to prevent that arguments of procs or functions are aliggned with signals above
    AlignSign_(result, startIndex, endIndex, ":", mode, "(\\bIS\\b|^\\s*\\)|(^\\s*PROCEDURE)|(^\\s*FUNCTION))", indentation);
-   AlignSign_(result, startIndex, endIndex, "(:|<)=", mode, "(\\bWHEN\\b|^\\s*\\))", indentation);
+   AlignSign_(result, startIndex, endIndex, "(:|<)=", mode, "(^\(?!.*;\).*\\bwhen\\b.*|^\\s*\\))", indentation);
    AlignSign_(result, startIndex, endIndex, "=>", mode, "", indentation);
    //AlignSign_(result, startIndex, endIndex, "<=", mode);
    //AlignSign_(result, startIndex, endIndex, "<=", mode);
@@ -928,48 +930,39 @@ function AlignSign(result, startIndex, endIndex, symbol, maxSymbolIndex, symbolI
    }
    for (var lineIndex in symbolIndices) {
       var symbolIndex = symbolIndices[lineIndex];
-      //if (symbolIndex == maxSymbolIndex) {
-      //   continue;
-      //}
+
       var line = result[lineIndex].Line;
-      //var m = line.match(/([ ]{2,}) :/) //padded spaces somewhere in the string
-      //var spaces = 0
-      //if (m) {
-      //   spaces = m[1].length
-      //   spaceIndex = m.index
-      //}
       var noSpaces = maxSymbolIndex - symbolIndex + 1
       if (symbolIndex < 0) {
          // if symbolIndex < 0, it means the line only needs spaces in front
          noSpaces = maxSymbolIndex + symbolIndex + 1
       }
-      noSpaces = noSpaces + (maxIndent - result[lineIndex].Indent) * indentation
-      //if (symbolIndex < spaceIndex) { // in this case we are going to add spaces before an already aligned part of the string
-      //   // compensate the later spaces by the amount of spaces we add now
-      //   var r = new RegExp(`[ ]{${spaces}}`)
-      //   line.replace(r, " ".repeat(spaces - noSpaces))
-      //}
+      noSpaces = Math.max(noSpaces + (maxIndent - result[lineIndex].Indent) * indentation, 0)
+
       result[lineIndex].Line = line.substring(0, symbolIndex)
          + (Array(noSpaces).join(" "))
          + line.substring(symbolIndex);
-      // if the current line doesn't stop on ;, continue to add spaces in front of the next lines until a line with a ; is found
-      /*if ((result[lineIndex].Line.indexOf(";") < 0) && (symbol === '(:|<)=')) {
-          var i = 1
-          do {
-              result[parseInt(lineIndex) + i].Line = Array(maxSymbolIndex - symbolIndex + 1).join(" ") + result[parseInt(lineIndex) + i].Line
-              i++
-          } while ((result[parseInt(lineIndex) + i - 1].Line.indexOf(";") < 0) && ((parseInt(lineIndex) + i - 1) < result.length))
-      }*/
    }
 }
 exports.AlignSign = AlignSign;
-function beautifyCaseBlock(inputs, result, settings, startIndex, indent) {
+function beautifyCaseBlock(inputs, result, settings, startIndex, indent, indentation) {
+   var endCase = -1
    if (!inputs[startIndex].regexStartsWith(/(.+:\s*)?(CASE)([\s]|$)/)) {
       return startIndex;
    }
    result.push(new FormattedLine(inputs[startIndex], indent));
    var _i = beautify3(inputs, result, settings, startIndex + 1, indent + 2), i = _i[0], endIndex = _i[1], inputs = _i[2];
    result[i].Indent = indent;
+   for (var i = startIndex; i < inputs.length; i++) {
+      if (inputs[i].search(/end\s+case/i) > -1) {
+         endCase = i
+         break
+      }
+   }
+   if (endCase > -1) {
+      AlignSign_(result, startIndex, endCase, "=>", "global", "\\r\\\r", indentation);
+   }
+
    return i;
 }
 exports.beautifyCaseBlock = beautifyCaseBlock;
@@ -1442,6 +1435,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
       endIndex = inputs.length - 1;
    }
    var a = 0
+   var foutje_gevonden = -1
    for (i = startIndex; i <= endIndex; i++) {
       a = i
       if (indent < 0) {
@@ -1459,6 +1453,9 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          var modeCache = Mode;
          Mode = FormatMode.EndsWithSemicolon;
          _a = beautifyComponentBlock(inputs, result, settings, i, endIndex, indent), i = _a[0], endIndex = _a[1];
+         if (i < a) {
+            foutje_gevonden = 1
+         }
          Mode = modeCache;
          continue;
       }
@@ -1467,13 +1464,19 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          var modeCache = Mode;
          Mode = FormatMode.EndsWithSemicolon;
          _b = beautifyEntity(inputs, result, settings, i, endIndex, indent), i = _b[0], endIndex = _b[1];
+         if (i < a) {
+            foutje_gevonden = 1
+         }
          Mode = modeCache;
          continue;
       }
       if (input.regexStartsWith(/(.+:\s*)?(CASE)([\s]|$)/)) {
          var modeCache = Mode;
          Mode = FormatMode.CaseWhen;
-         i = beautifyCaseBlock(inputs, result, settings, i, indent);
+         i = beautifyCaseBlock(inputs, result, settings, i, indent, settings.Indentation);
+         if (i < a) {
+            foutje_gevonden = 1
+         }
          Mode = modeCache;
          continue;
       }
@@ -1490,6 +1493,9 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
             var modeCache = Mode;
             Mode = FormatMode.MultilineAssignment;
             i = beautifyMultilineDefault(inputs, result, settings, i, indent);
+            if (i < a) {
+               foutje_gevonden = 1
+            }
             Mode = modeCache;
             continue;
          }
@@ -1505,14 +1511,23 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
 */
       if (input.regexStartsWith(/.*?\:\=\s*\($/)) {
          _d = beautifyPortGenericBlock(inputs, result, settings, i, endIndex, indent, ":="), i = _d[0], endIndex = _d[1];
+         if (i < a) {
+            foutje_gevonden = 1
+         }
          continue;
       }
       if (input.regexStartsWith(/[\w\s:]*\bPORT\b([\s]|$)/)) {
          _e = beautifyPortGenericBlock(inputs, result, settings, i, endIndex, indent, "PORT"), i = _e[0], endIndex = _e[1];
+         if (i < a) {
+            foutje_gevonden = 1
+         }
          continue;
       }
       if (input.regexStartsWith(/TYPE\s+\w+\s+IS\s+\(/)) {
          _f = beautifyPortGenericBlock(inputs, result, settings, i, endIndex, indent, "IS"), i = _f[0], endIndex = _f[1];
+         if (i < a) {
+            foutje_gevonden = 1
+         }
          continue;
       }
       if (input.regexStartsWith(/[\w\s:]*GENERIC([\s]|$)/)) {
@@ -1524,12 +1539,18 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          if (pack > -1) {
             indent--;
          }
+         if (i < a) {
+            foutje_gevonden = 1
+         }
          continue;
       }
       if (input.regexStartsWith(/^(?!.*\bis$)PROCEDURE[\s\w]+\(.*/)) {
          _h = beautifyPortGenericBlock(inputs, result, settings, i, endIndex, indent, "PROCEDURE"), i = _h[0], endIndex = _h[1];
          if (inputs[i].regexStartsWith(/.*\)[\s]*IS/)) {
             _o = beautify3(inputs, result, settings, i + 1, indent + 1), i = _o[0], endIndex = _o[1], inputs = _o[2];
+         }
+         if (i < a) {
+            foutje_gevonden = 1
          }
          continue;
       }
@@ -1542,6 +1563,9 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          }
          else {
             result[i].Indent++;
+         }
+         if (i < a) {
+            foutje_gevonden = 1
          }
          continue;
       }
@@ -1559,6 +1583,9 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          else {
             result[i].Indent++;
          }
+         if (i < a) {
+            foutje_gevonden = 1
+         }
          continue;
       }
 
@@ -1575,6 +1602,9 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
             Mode = FormatMode.functionOrProcedure;
             _l = beautifySemicolonBlock(inputs, result, settings, i, endIndex, indent), i = _l[0], endIndex = _l[1], inputs = _l[2];
             Mode = modeCache;
+            if (i < a) {
+               foutje_gevonden = 1
+            }
             continue;
          }
       }
@@ -1588,6 +1618,9 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          Mode = FormatMode.EndsWithSemicolon;
          _c = beautifyEntity(inputs, result, settings, i, endIndex, indent), i = _c[0], endIndex = _c[1];
          Mode = modeCache;
+         if (i < a) {
+            foutje_gevonden = 1
+         }
          continue;
       }
       result.push(new FormattedLine(input, indent));
@@ -1596,6 +1629,9 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
             || (Mode != FormatMode.EndsWithSemicolon && input.regexStartsWith(regexMidKeyElse))
             || (Mode == FormatMode.CaseWhen && input.regexStartsWith(regexMidKeyWhen)))) {
          result[i].Indent--;
+         if (i < a) {
+            foutje_gevonden = 1
+         }
          continue
          //indent--;// done to correct indent after a end generate statement. If not done, the indent doesn't decrease
       }
@@ -1611,6 +1647,12 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
       if (input.regexStartsWith(regexFunctionMultiLineBlockKeyWords)
          || (input.regexStartsWith(regexBlockStartsKeywords)) && input.indexOf(";") < 0) {
          _r = beautify3(inputs, result, settings, i + 1, result[i].Indent + 1), i = _r[0], endIndex = _r[1], inputs = _r[2];
+         if (i < a) {
+            foutje_gevonden = 1
+         }
+      }
+      if (foutje_gevonden == 1) {
+         var pecht = 1
       }
    }
    i--;
