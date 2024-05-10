@@ -321,7 +321,7 @@ function fix_closing_brackets(input) {
 
 
 
-function allignOn(arr, object, endpat, toallign, startingWith) {
+function allignOn(arr, object, endpat, toallign, startingWith, endingWith) {
    let start = -1;
    let end = -1;
    let max = 0;
@@ -334,6 +334,9 @@ function allignOn(arr, object, endpat, toallign, startingWith) {
       startingWith = ""
    }
    let toallignpat = new RegExp(`(?<=^ *${startingWith}\\s*[\\S]+[\\S\\s]+)${toallign}`)
+   if (endingWith) {
+      toallignpat = new RegExp(`(?<=^ *${startingWith}\\s*[\\S]+[\\S\\s]+)${toallign}.*${endingWith}`)
+   }
    for (let k = 0; k < arr.length; k++) {
       if (arr[k].regexStartsWith(new RegExp(object))) {
          start = k;
@@ -606,8 +609,8 @@ function beautify(input, settings) {
    allignOn(arr, "\\s*PORT\\s*MAP", "\\s*\\)\s*;", "=>");
    allignOn(arr, "\\s*PORT\\s*MAP", "\\s*\\)\s*;", "@@");
    // support alignment for case with commands after when
-   allignOn(arr, "\\s*CASE\\s*", "[ ]*\\bEND", "=>", "WHEN");
-   allignOn(arr, "\\s*CASE\\s*", "[ ]*\\bEND", "(:|<)=", "WHEN");
+   allignOn(arr, "\\s*CASE\\s*", "[ ]*\\bEND", "=>", "when\s+.+", ";.*");
+   allignOn(arr, "\\s*CASE\\s*", "[ ]*\\bEND", "(:|<)=", "when\s+.", ";.*");
    allignOn(arr, "\\bCASE", "[ ]*\\bEND", "@@")
 
    //fix_architecture(arr)
@@ -834,7 +837,7 @@ function AlignSigns(result, startIndex, endIndex, mode, indentation) {
    // except procedure or function at the beginning of the line is to prevent that arguments of procs or functions are aliggned with signals above
    AlignSign_(result, startIndex, endIndex, ":", mode, "(\\bIS\\b|^\\s*\\)|(^\\s*PROCEDURE)|(^\\s*FUNCTION))", indentation);
    AlignSign_(result, startIndex, endIndex, "(:|<)=", mode, "(^\(?!.*;\).*\\bwhen\\b.*|^\\s*\\))", indentation);
-   AlignSign_(result, startIndex, endIndex, "=>", mode, "", indentation);
+   AlignSign_(result, startIndex, endIndex, "=>", mode, "\r\r", indentation);
    //AlignSign_(result, startIndex, endIndex, "<=", mode);
    //AlignSign_(result, startIndex, endIndex, "<=", mode);
    AlignSign_(result, startIndex, endIndex, "@@comments", mode, "\\bWHEN\\b", indentation);
@@ -979,7 +982,7 @@ function beautifyCaseBlock(inputs, result, settings, startIndex, indent, indenta
       AlignSign_(result, startIndex, endCase, "=>", "global", "\\r\\\r", indentation);
    }
 
-   return i;
+   return [i, inputs];
 }
 exports.beautifyCaseBlock = beautifyCaseBlock;
 
@@ -1027,7 +1030,7 @@ function beautifyMultilineDefault(inputs, result, settings, startIndex, indent) 
       }
    }
    i--
-   return i;
+   return [i, inputs];
 }
 
 exports.beautifyMultilineDefault = beautifyMultilineDefault;
@@ -1134,7 +1137,7 @@ function beautifyWithSelect(inputs, result, settings, startIndex, indent) {
    } else {
       i--
    }
-   return i;
+   return [i, inputs];
 }
 exports.beautifyWithSelect = beautifyWithSelect;
 
@@ -1382,6 +1385,15 @@ function getNextSymbolIndex(inputs, startindex, symbol) {
 }
 exports.getNextSymbolIndex = getNextSymbolIndex;
 
+function errorCheck(inputs, result, i, a) {
+   if (i < a) {
+      console.log(`around line ${i} "${inputs[i]}" looping back`)
+   }
+   if (result.length != i + 1) {
+      console.log(`around line ${i} "${inputs[i]}" possible loss of lines`)
+   }
+}
+
 function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
    //var oldInstanceAlignment = false
    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t;
@@ -1472,9 +1484,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          var modeCache = Mode;
          Mode = FormatMode.EndsWithSemicolon;
          _a = beautifyComponentBlock(inputs, result, settings, i, endIndex, indent), i = _a[0], endIndex = _a[1];
-         if (i < a) {
-            foutje_gevonden = 1
-         }
+         errorCheck(inputs, result, i, a)
          Mode = modeCache;
          continue;
       }
@@ -1483,26 +1493,22 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          var modeCache = Mode;
          Mode = FormatMode.EndsWithSemicolon;
          _b = beautifyEntity(inputs, result, settings, i, endIndex, indent), i = _b[0], endIndex = _b[1];
-         if (i < a) {
-            foutje_gevonden = 1
-         }
+         errorCheck(inputs, result, i, a)
          Mode = modeCache;
          continue;
       }
       if (input.regexStartsWith(/(.+:\s*)?(CASE)([\s]|$)/)) {
          var modeCache = Mode;
          Mode = FormatMode.CaseWhen;
-         i = beautifyCaseBlock(inputs, result, settings, i, indent, settings.Indentation);
-         if (i < a) {
-            foutje_gevonden = 1
-         }
+         var __i = beautifyCaseBlock(inputs, result, settings, i, indent, settings.Indentation), i = __i[0], inputs = __i[1]
+         errorCheck(inputs, result, i, a)
          Mode = modeCache;
          continue;
       }
       if (input.regexStartsWith(/(WITH\s+[\w\s\\]+SELECT)/) || input.regexStartsWith(/.*(<|:)=.*\bWHEN\b.*\bELSE\b/)) {
          var modeCache = Mode;
          Mode = FormatMode.WithSelect;
-         i = beautifyWithSelect(inputs, result, settings, i, indent);
+         var __i = beautifyWithSelect(inputs, result, settings, i, indent), i = __i[0], inputs = __i[1]
          Mode = modeCache;
          continue;
       }
@@ -1511,10 +1517,8 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          if (!containsBeforeNextSemicolon(inputs, i, /\bIS\b/)) { // if the text doesn't contain IS, the line is a multiline declaration. In the other case, it is the last line of a function or procedure declaration.
             var modeCache = Mode;
             Mode = FormatMode.MultilineAssignment;
-            i = beautifyMultilineDefault(inputs, result, settings, i, indent);
-            if (i < a) {
-               foutje_gevonden = 1
-            }
+            var __i = beautifyMultilineDefault(inputs, result, settings, i, indent), i = __i[0], inputs = __i[1]
+            errorCheck(inputs, result, i, a)
             Mode = modeCache;
             continue;
          }
@@ -1530,23 +1534,17 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
 */
       if (input.regexStartsWith(/.*?\:\=\s*\($/)) {
          _d = beautifyPortGenericBlock(inputs, result, settings, i, endIndex, indent, ":="), i = _d[0], endIndex = _d[1];
-         if (i < a) {
-            foutje_gevonden = 1
-         }
+         errorCheck(inputs, result, i, a)
          continue;
       }
       if (input.regexStartsWith(/[\w\s:]*\bPORT\b([\s]|$)/)) {
          _e = beautifyPortGenericBlock(inputs, result, settings, i, endIndex, indent, "PORT"), i = _e[0], endIndex = _e[1];
-         if (i < a) {
-            foutje_gevonden = 1
-         }
+         errorCheck(inputs, result, i, a)
          continue;
       }
       if (input.regexStartsWith(/TYPE\s+\w+\s+IS\s+\(/)) {
          _f = beautifyPortGenericBlock(inputs, result, settings, i, endIndex, indent, "IS"), i = _f[0], endIndex = _f[1];
-         if (i < a) {
-            foutje_gevonden = 1
-         }
+         errorCheck(inputs, result, i, a)
          continue;
       }
       if (input.regexStartsWith(/[\w\s:]*GENERIC([\s]|$)/)) {
@@ -1558,9 +1556,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          if (pack > -1) {
             indent--;
          }
-         if (i < a) {
-            foutje_gevonden = 1
-         }
+         errorCheck(inputs, result, i, a)
          continue;
       }
       if (input.regexStartsWith(/^(?!.*\bis$)PROCEDURE[\s\w]+\(.*/)) {
@@ -1568,9 +1564,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          if (inputs[i].regexStartsWith(/.*\)[\s]*IS/)) {
             _o = beautify3(inputs, result, settings, i + 1, indent + 1), i = _o[0], endIndex = _o[1], inputs = _o[2];
          }
-         if (i < a) {
-            foutje_gevonden = 1
-         }
+         errorCheck(inputs, result, i, a)
          continue;
       }
 
@@ -1583,9 +1577,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          else {
             result[i].Indent++;
          }
-         if (i < a) {
-            foutje_gevonden = 1
-         }
+         errorCheck(inputs, result, i, a)
          continue;
       }
       if (input.regexStartsWith(/IMPURE FUNCTION[^\w]/)
@@ -1602,9 +1594,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          else {
             result[i].Indent++;
          }
-         if (i < a) {
-            foutje_gevonden = 1
-         }
+         errorCheck(inputs, result, i, a)
          continue;
       }
 
@@ -1621,9 +1611,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
             Mode = FormatMode.functionOrProcedure;
             _l = beautifySemicolonBlock(inputs, result, settings, i, endIndex, indent), i = _l[0], endIndex = _l[1], inputs = _l[2];
             Mode = modeCache;
-            if (i < a) {
-               foutje_gevonden = 1
-            }
+            errorCheck(inputs, result, i, a)
             continue;
          }
       }
@@ -1637,9 +1625,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          Mode = FormatMode.EndsWithSemicolon;
          _c = beautifyEntity(inputs, result, settings, i, endIndex, indent), i = _c[0], endIndex = _c[1];
          Mode = modeCache;
-         if (i < a) {
-            foutje_gevonden = 1
-         }
+         errorCheck(inputs, result, i, a)
          continue;
       }
 
@@ -1651,10 +1637,8 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          if (!containsBeforeNextSemicolon(inputs, i, /\bIS\b/)) { // if the text doesn't contain IS, the line is a multiline declaration. In the other case, it is the last line of a function or procedure declaration.
             var modeCache = Mode;
             Mode = FormatMode.MultilineAssignment;
-            i = beautifyMultilineDefault(inputs, result, settings, i, indent);
-            if (i < a) {
-               foutje_gevonden = 1
-            }
+            var __i = beautifyMultilineDefault(inputs, result, settings, i, indent), i = __i[0], inputs = __i[1];
+            errorCheck(inputs, result, i, a)
             Mode = modeCache;
             continue;
          }
@@ -1667,9 +1651,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
             || (Mode != FormatMode.EndsWithSemicolon && input.regexStartsWith(regexMidKeyElse))
             || (Mode == FormatMode.CaseWhen && input.regexStartsWith(regexMidKeyWhen)))) {
          result[i].Indent--;
-         if (i < a) {
-            foutje_gevonden = 1
-         }
+         errorCheck(inputs, result, i, a)
          continue
          //indent--;// done to correct indent after a end generate statement. If not done, the indent doesn't decrease
       }
@@ -1685,9 +1667,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
       if (input.regexStartsWith(regexFunctionMultiLineBlockKeyWords)
          || (input.regexStartsWith(regexBlockStartsKeywords)) && input.indexOf(";") < 0) {
          _r = beautify3(inputs, result, settings, i + 1, result[i].Indent + 1), i = _r[0], endIndex = _r[1], inputs = _r[2];
-         if (i < a) {
-            foutje_gevonden = 1
-         }
+         errorCheck(inputs, result, i, a)
       }
       if (foutje_gevonden == 1) {
          var pecht = 1
