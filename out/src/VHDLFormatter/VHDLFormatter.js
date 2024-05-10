@@ -876,29 +876,41 @@ function AlignSign_(result, startIndex, endIndex, symbol, mode, exclude, indenta
          maxSymbolIndex = Math.max(maxSymbolIndex, colonIndex);
          maxIndent = Math.max(maxIndent, result[i].Indent);
          symbolIndices[i] = colonIndex;
-         if ((symbol === "(:|<)=") && (result[i].Line.indexOf(";") < 0)) { // if a multiline assignment OR last argument of function or procedure call!
+         if ((symbol === "(:|<)=") && (result[i].Line.indexOf(";") < 0)) { // if a multiline assignment using when else OR last argument of function or procedure call!
+            //if a multiline assignment, additional spaces are padded with ILForceSpace
+            //so if we detect on ILForceSpace, we know if multiline or not
             var text = ""
             var l = i
             do {
                l++
                text = text + " " + result[l].Line
             } while ((result[l].Line.indexOf(";") === -1) && (l < result.length)) //search for the next ;
-            if (text.indexOf("IS") < 0) {// no IS defined => indeed multiline assignment...
-               var m = line.match(/([ ]+) :/) //detect leading spaces
-               var spaces = 0
-               if (m) {
-                  spaces = m[1].length
-               }
-               //if assignment found not ending in ; => multiline, so search for ending ;
+            if (text.indexOf(ILForceSpace) >= 0) {// ILForceSpace found => indeed multiline assignment...
+
+               /*var text = ""
+               var l = i
                do {
-                  if (i < endIndex) {
-                     i++
+                  l++
+                  text = text + " " + result[l].Line
+               } while ((result[l].Line.indexOf(";") === -1) && (l < result.length)) //search for the next ;
+               if (text.indexOf("IS") < 0) {// no IS defined => indeed multiline assignment...
+                  var m = line.match(/([ ]+) :/) //detect leading spaces
+                  var spaces = 0
+                  if (m) {
+                     spaces = m[1].length
+                  }*/
+               //if assignment found not ending in ; => multiline, so search for ending ;
+               //and add the same space padding in front to let the second lines allign
+               do {
+                  i++
+                  if ((i <= endIndex) && (result[i].Line.indexOf(ILForceSpace) === 0)) {
                      //by setting the symbolIndex to -colonIndex tells to the AlignSign to just add spaces
-                     symbolIndices[i] = colonIndex * -1 + spaces;
+                     symbolIndices[i] = colonIndex * -1;
                   } else {
                      break;
                   }
-               } while (result[i].Line.indexOf(";") < 0)
+               } while (result[i].Line.indexOf(ILForceSpace) === 0) // must be === 0 since case statements have also forced spaces but not at the start of a line
+               i-- //we detect that a line doesn't contain a forced space anymore, so we need to decrement i to let this line parse again in the main lop
             }
          }
       }
@@ -937,7 +949,11 @@ function AlignSign(result, startIndex, endIndex, symbol, maxSymbolIndex, symbolI
          // if symbolIndex < 0, it means the line only needs spaces in front
          noSpaces = maxSymbolIndex + symbolIndex + 1
       }
-      noSpaces = Math.max(noSpaces + (maxIndent - result[lineIndex].Indent) * indentation, 0)
+      if (symbol === "@@comments") {
+         // only for comments, take the indent into account to allign the comments correctly
+         noSpaces = Math.max(noSpaces + (maxIndent - result[lineIndex].Indent) * indentation, 0)
+
+      }
 
       result[lineIndex].Line = line.substring(0, symbolIndex)
          + (Array(noSpaces).join(" "))
@@ -1400,11 +1416,13 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
    var indentedEndsKeyWords = [ILIndentedReturnPrefix + "RETURN\\s+\\w+;"];
    var blockEndsWithSemicolon = [
       //"(WITH\\s+[\\w\\s\\\\]+SELECT)",
-      "([\\w\\\\]+[\\s]*<=)",
-      "([\\w\\\\]+[\\s]*:=)",
       "FOR\\s+[\\w\\s,]+:\\s*\\w+\\s+USE",
       "ASSERT"
    ];
+   var multilineAssignment = [
+      "([\\w\\\\]+[\\s]*<=)",
+      "([\\w\\\\]+[\\s]*:=)"
+   ]
    var functionOrProcedure = [
       "([a-zA-Z0-9_.]+[\\s]*\\(.*)",
       "(([\\s\\S]+?[\\s]*(<|:)=)[\\s]*[a-zA-Z0-9_.]+[\\s]*\\(.*)"
@@ -1412,6 +1430,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
    var regexBlockEndsKeyWords = blockEndsKeyWords.convertToRegexBlockWords();
    var regexBlockIndentedEndsKeyWords = indentedEndsKeyWords.convertToRegexBlockWords();
    var regexblockEndsWithSemicolon = blockEndsWithSemicolon.convertToRegexBlockWords();
+   var regexmultilineAssignment = multilineAssignment.convertToRegexBlockWords();
    var regexfunctionOrProcedure = functionOrProcedure[0] + "|" + functionOrProcedure[1]
    regexfunctionOrProcedure = regexfunctionOrProcedure.convertToRegexBlockWords();
    var regexMidKeyWhen = "WHEN".convertToRegexBlockWords();
@@ -1613,7 +1632,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          && !(input.regexStartsWith(/port|generic/i))
          && !(input.regexStartsWith(newLineAfterKeyWordsStr))
       ) {
-         //if (Mode != FormatMode.EndsWithSemicolon && input.regexStartsWith(regexblockEndsWithSemicolon) ) {
+         // for ... loop and assert
          var modeCache = Mode;
          Mode = FormatMode.EndsWithSemicolon;
          _c = beautifyEntity(inputs, result, settings, i, endIndex, indent), i = _c[0], endIndex = _c[1];
@@ -1623,6 +1642,25 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          }
          continue;
       }
+
+      if (Mode != FormatMode.blockEndsWithSemicolon && input.regexStartsWith(regexmultilineAssignment)
+         && !(input.regexStartsWith(/port|generic/i))
+         && !(input.regexStartsWith(newLineAfterKeyWordsStr))
+      ) {
+         // assignment of a signal on multiple lines
+         if (!containsBeforeNextSemicolon(inputs, i, /\bIS\b/)) { // if the text doesn't contain IS, the line is a multiline declaration. In the other case, it is the last line of a function or procedure declaration.
+            var modeCache = Mode;
+            Mode = FormatMode.MultilineAssignment;
+            i = beautifyMultilineDefault(inputs, result, settings, i, indent);
+            if (i < a) {
+               foutje_gevonden = 1
+            }
+            Mode = modeCache;
+            continue;
+         }
+      }
+
+
       result.push(new FormattedLine(input, indent));
       if (startIndex != 0
          && (input.regexStartsWith(regexBlockMidKeyWords)
