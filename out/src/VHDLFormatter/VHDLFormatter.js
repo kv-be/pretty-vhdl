@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.RemoveAsserts = exports.ApplyNoNewLineAfter = exports.beautify3 = exports.beautifySemicolonBlock = exports.containsBeforeNextSemicolon = exports.countOpenBrackets = exports.beautifyEntity = exports.beautifyComponentBlock = exports.beautifyWhenBlock = exports.beautifyCaseBlock = exports.beautifyWithSelect = exports.beautifyMultilineDefault = exports.AlignSign = exports.AlignSigns = exports.beautifyPortGenericBlock = exports.FormattedLineToString = exports.FormattedLine = exports.beautify = exports.BeautifierSettings = exports.signAlignSettings = exports.SetNewLinesAfterSymbols = exports.NewLineSettings = void 0;
+exports.RemoveAsserts = exports.ApplyNoNewLineAfter = exports.beautify3 = exports.beautifySemicolonBlock = exports.containsBeforeNextSemicolon = exports.countOpenBrackets = exports.beautifyEntity = exports.beautifyComponentBlock = exports.beautifyWhenBlock = exports.beautifyCaseBlock = exports.beautifyWithSelect = exports.beautifyMultilineIf = exports.beautifyMultilineDefault = exports.AlignSign = exports.AlignSigns = exports.beautifyPortGenericBlock = exports.FormattedLineToString = exports.FormattedLine = exports.beautify = exports.BeautifierSettings = exports.signAlignSettings = exports.SetNewLinesAfterSymbols = exports.NewLineSettings = void 0;
 var isTesting = false;
 var ILEscape = "@@";
 var ILCommentPrefix = ILEscape + "comments";
@@ -997,6 +997,33 @@ function getMatchingClosingBrackets(inputs, startIndex) {
    return -1
 }
 
+function beautifyMultilineIf(inputs, result, settings, startIndex, indent) {
+   var padding = inputs[startIndex].trim().match(/[\S]+/)
+   var i
+   var elseif = (inputs[startIndex].indexOf("ELSIF") > -1)
+   if (padding) {
+      padding = padding[0].length + 1
+   }
+   var endIndex
+   padding = ILForceSpace.repeat(padding)
+   result.push(new FormattedLine(inputs[startIndex], indent));
+   if (elseif) {
+      result[startIndex].Indent--
+      indent--
+   }
+   for (i = Math.min(startIndex + 1, inputs.length - 1); i < inputs.length - 1; i++) {
+      inputs[i] = padding + inputs[i]
+
+      result.push(new FormattedLine(inputs[i], indent));
+      if (inputs[i].search(/\bTHEN\b/) > -1) {
+         break;
+      }
+   }
+   var _c = beautify3(inputs, result, settings, i + 1, indent + 1, endIndex), i = _c[0], endIndex = _c[1], inputs = _c[2];
+   return [i, endIndex, inputs]
+}
+exports.beautifyMultilineIf = beautifyMultilineIf;
+
 function beautifyMultilineDefault(inputs, result, settings, startIndex, indent) {
    var start = startIndex
    var endIndex = getSemicolonBlockEndIndex(inputs, settings, startIndex, inputs.length - 1)
@@ -1402,7 +1429,6 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
    var regexFunctionMultiLineBlockKeyWords = new RegExp(/(FUNCTION|IMPURE FUNCTION)[^\w](?=.+[^\w]IS([^\w]|$))/); //match FUNCTION .. IS; but not FUNCTION
    var blockMidKeyWords = ["BEGIN"];
    var blockStartsKeyWords = [
-      "IF",
       "CASE",
       "ARCHITECTURE",
       "PROCEDURE",
@@ -1643,7 +1669,15 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
             continue;
          }
       }
-
+      if (input.regexStartsWith(/(?!.*\bTHEN\b)^\b(IF|ELSIF)\b/)) {
+         //a if or elseif wihtout a then on the same line
+         var modeCache = Mode;
+         Mode = FormatMode.MultilineAssignment;
+         var __i = beautifyMultilineIf(inputs, result, settings, i, indent), i = __i[0], inputs = __i[1];
+         errorCheck(inputs, result, i, a)
+         Mode = modeCache;
+         continue;
+      }
 
       result.push(new FormattedLine(input, indent));
       if (startIndex != 0
