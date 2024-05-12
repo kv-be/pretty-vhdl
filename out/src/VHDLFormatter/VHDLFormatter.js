@@ -1324,7 +1324,7 @@ function beautifySemicolonBlock(inputs, result, settings, startIndex, parentEndI
          for (var i = startIndex + 1; i <= endIndex - 1; i++) {
             inputs[i] = stuf + inputs[i].trim()
          }
-         inputs[endIndex] = stuf.substr(0, stuf.length - 3) + inputs[endIndex].trim()
+         inputs[endIndex] = stuf.substr(0, stuf.length - settings.Indentation.length) + inputs[endIndex].trim()
       }
    }
 
@@ -1488,7 +1488,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          Mode = modeCache;
          continue;
       }
-      if (input.regexStartsWith(/\w+\s*:\s*(ENTITY)*/) && inputs[i + 1].regexStartsWith(/[ ]*(PORT|GENERIC)+[ ]+MAP/) && settings.oldInstanceAlignment) {
+      if (input.regexStartsWith(/\w+\s*:\s*(ENTITY)*/) && inputs[Math.min(i + 1, inputs.length - 1)].regexStartsWith(/[ ]*(PORT|GENERIC)+[ ]+MAP/) && settings.oldInstanceAlignment) {
          //entity instantiation : remove this line when instances need to start at indent +0
          var modeCache = Mode;
          Mode = FormatMode.EndsWithSemicolon;
