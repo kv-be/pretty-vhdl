@@ -570,11 +570,13 @@ function beautify(input, settings) {
 
    // line starting with procedure and not containing IS
    input = input.replace(/(?!(\bis\b|;))(\s*PROCEDURE[\s\w]+?\()([^(@@|\r*\n)]+?)\r*\n/gi, "$2\r\n$3\r\n") //force multiline procedures to put arguments on the next line
+   input = input.replace(/(?!(\bis\b|;))(\s*FUNCTION[\s\w]+?\()([^(@@|\r*\n)]+?)\r*\n/gi, "$2\r\n$3\r\n") //force multiline functions to put arguments on the next line
    // line not containing keywords and ending in ) is
    input = input.replace(/\r*\n\s*(?!\b(function|procedure|subtype|type|alias|component|architecture|case|entity)\s)(.*?)\)\s*(\bis\b.*)\r*\n/gi, "$2\r\n\) $3\r\n") //force the closing ") is" on a new line
    //    ^ (? !\b(function| procedure)) (.*\s *\bis\b)
    // line starting with procedure and not containing IS
    input = input.replace(/\r*\n\s*(?!(\bis\b|;))(\s*PROCEDURE[\s\w]+?\()([^(@@|\r*\n)]+?)\r*\n/gi, "$2\r\n$3\r\n") //force multiline procedures to put arguments on the next line
+   input = input.replace(/\r*\n\s*(?!(\bis\b|;))(\s*FUNCTION[\s\w]+?\()([^(@@|\r*\n)]+?)\r*\n/gi, "$2\r\n$3\r\n") //force multiline functions to put arguments on the next line
    // line not containing keywords and ending in ) is
    input = input.replace(/\r*\n\s*(?!\b(function|procedure|subtype|type|alias|component|architecture|case|entity))(.*?)\)\s*(\bis\b.*)\r*\n/gi, "$2\r\n\) $3\r\n") //force the closing ") is" on a new line
    //    ^ (? !\b(function| procedure)) (.*\s *\bis\b)
@@ -838,7 +840,8 @@ function AlignSigns(result, startIndex, endIndex, mode, indentation) {
    // except ) at the beginning of the line is to break allignment for signals with multiline defaults
    // except procedure or function at the beginning of the line is to prevent that arguments of procs or functions are aliggned with signals above
    AlignSign_(result, startIndex, endIndex, ":", mode, "(\\bIS\\b|^\\s*\\)|(^\\s*PROCEDURE)|(^\\s*FUNCTION))", indentation);
-   AlignSign_(result, startIndex, endIndex, "(:|<)=", mode, "(^\(?!.*;\).*\\bwhen\\b.*|^\\s*\\))", indentation);
+   // exlude when and if since the smaller than or equal operator is the same as the assignment operator, but we don't want to align on that
+   AlignSign_(result, startIndex, endIndex, "(:|<)=", mode, "(^\(?!.*;\).*\\b(when|IF|ELSIF)\\b.*|^\\s*\\))", indentation);
    AlignSign_(result, startIndex, endIndex, "=>", mode, "\r\r", indentation);
    //AlignSign_(result, startIndex, endIndex, "<=", mode);
    //AlignSign_(result, startIndex, endIndex, "<=", mode);
@@ -861,6 +864,7 @@ function AlignSign_(result, startIndex, endIndex, symbol, mode, exclude, indenta
    var colonIndex = 0
    var maxIndent = 0
    var forcedBlockEnd = false
+   var isIf = false
    if (typeof exclude === 'undefined') {
       exclude = /\r\r/
    }
@@ -876,22 +880,35 @@ function AlignSign_(result, startIndex, endIndex, symbol, mode, exclude, indenta
       /*if (line.regexCount(regex) > 1) {
           continue;
       }*/
+
+      isIf = (result[i].Line.trim().search(/\b(IF|ELSIF)\b/) === 0) || isIf
+      if (result[i].Line.indexOf("THEN") > -1) {
+         isIf = false
+      }
+      var endingInBracket
       var colonIndex = line.regexIndexOf(regex);
-      if (colonIndex > 0 && (line.search(exclude) < 0) && !forcedBlockEnd) {
+      if (colonIndex > 0 && (line.search(exclude) < 0) && !forcedBlockEnd && !isIf) {
          //the WHEN lines in a case do
          maxSymbolIndex = Math.max(maxSymbolIndex, colonIndex);
          maxIndent = Math.max(maxIndent, result[i].Indent);
          symbolIndices[i] = colonIndex;
+
+         // the problem here is that I now have logic for the multiline default stuff, but we also need the same for the multiline if and elsif.
          if (((symbol == ":") || (symbol === "(:|<)=")) && (result[i].Line.indexOf(";") < 0)) { // if a multiline assignment using when else OR last argument of function or procedure call!
-            //if a multiline assignment, additional spaces are padded with ILForceSpace
+            //if a multiline assignment or if, additional spaces are padded with ILForceSpace
             //so if we detect on ILForceSpace, we know if multiline or not
             var text = ""
             var l = i
             var starting_bracket = (countOpenBrackets(result[l].Line) > 0) && (symbol === "(:|<)=")
+            endingInBracket = result[l].Line.replace(/@@comment.*/, "").trim() // filter off possible comments and spaces at the end
+            // check if the line ends in a "(" without anything else. 
+            // If so => next lines only need indent
+            // else align to the symbol
+            endingInBracket = endingInBracket[endingInBracket.length - 1] === "("
             do {
                l++
                text = text + " " + result[l].Line.replaceAll(/\(OTHERS => /g, "OOOOOOOOOOO");
-            } while ((result[l].Line.indexOf(";") === -1) && (l < result.length)) //search for the next ;
+            } while (((result[l].Line.indexOf(";") === -1) && (!isIf)) && (l < result.length)) //search for the next ;
             if (text.indexOf(ILForceSpace) >= 0) {// ILForceSpace found => indeed multiline assignment...
 
                /*var text = ""
@@ -913,12 +930,21 @@ function AlignSign_(result, startIndex, endIndex, symbol, mode, exclude, indenta
                   if ((i <= endIndex) && (result[i].Line.indexOf(ILForceSpace) === 0)) {
                      //by setting the symbolIndex to -colonIndex tells to the AlignSign to just add spaces
                      var ending_bracket = (countOpenBrackets(result[i].Line) < 0) && (symbol === "(:|<)=") && (result[i].Line.replaceAll(ILForceSpace, "").indexOf(")") === 0)
-                     symbolIndices[i] = colonIndex * -1;
-                     if (starting_bracket) (
-                        symbolIndices[i]++
-                     )
-                     if (ending_bracket) {
-                        symbolIndices[i]--
+                     if (endingInBracket) {
+                        if (!ending_bracket) {
+                           result[i].Line = ILForceSpace.repeat(indentation.length) + result[i].Line.replaceAll(/^[⨹]+/g, "")
+                        } else {
+                           result[i].Line = result[i].Line.replaceAll(/^[⨹]+/g, "")
+                        }
+
+                     } else {
+                        symbolIndices[i] = colonIndex * -1;
+                        if (starting_bracket) (
+                           symbolIndices[i]++
+                        )
+                        if (ending_bracket) {
+                           symbolIndices[i]--
+                        }
                      }
                   } else {
                      break;
@@ -1433,6 +1459,9 @@ function errorCheck(inputs, result, i, a) {
    if (result.length != i + 1) {
       console.log(`around line ${i} "${inputs[i]}" possible loss of lines`)
    }
+   if (inputs.length < i) {
+      console.log(`around line ${i} "${inputs[i]}" possible loss of lines`)
+   }
 }
 
 function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
@@ -1604,18 +1633,23 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
       if (input.regexStartsWith(/^(?!.*\bis$)PROCEDURE[\s\w]+\(.*/)) {
          var modeCache = Mode;
          Mode = FormatMode.functionOrProcedureDeclare
+         // mode change needed to deal with last argument of a function declaration, whihc is indistinguisable from a multiline signal declaration
          _h = beautifyPortGenericBlock(inputs, result, settings, i, endIndex, indent, "PROCEDURE"), i = _h[0], endIndex = _h[1];
+         Mode = modeCache
          if (inputs[i].regexStartsWith(/.*\)[\s]*IS/)) {
             _o = beautify3(inputs, result, settings, i + 1, indent + 1), i = _o[0], endIndex = _o[1], inputs = _o[2];
          }
-         Mode = modeCache
          errorCheck(inputs, result, i, a)
          continue;
       }
 
       if (input.regexStartsWith(/FUNCTION[^\w]/)
          && input.regexIndexOf(/[^\w]RETURN[^\w]/) < 0) {
+         var modeCache = Mode;
+         Mode = FormatMode.functionOrProcedureDeclare
+         // mode change needed to deal with last argument of a function declaration, whihc is indistinguisable from a multiline signal declaration
          _j = beautifyPortGenericBlock(inputs, result, settings, i, endIndex, indent, "FUNCTION"), i = _j[0], endIndex = _j[1];
+         Mode = modeCache
          if (!inputs[i].regexStartsWith(regexBlockEndsKeyWords)) {
             _p = beautify3(inputs, result, settings, i + 1, indent + 1), i = _p[0], endIndex = _p[1], inputs = _p[2];
          }
@@ -1627,7 +1661,11 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
       }
       if (input.regexStartsWith(/IMPURE FUNCTION[^\w]/)
          && input.regexIndexOf(/[^\w]RETURN[^\w]/) < 0) {
+         var modeCache = Mode;
+         Mode = FormatMode.functionOrProcedureDeclare
+         // mode change needed to deal with last argument of a function declaration, whihc is indistinguisable from a multiline signal declaration
          _k = beautifyPortGenericBlock(inputs, result, settings, i, endIndex, indent, "IMPURE FUNCTION"), i = _k[0], endIndex = _k[1];
+         Mode = modeCache
          if (!inputs[i].regexStartsWith(regexBlockEndsKeyWords)) {
             if (inputs[i].regexStartsWith(regexBlockIndentedEndsKeyWords)) {
                result[i].Indent++;
@@ -1692,7 +1730,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          //a if or elseif wihtout a then on the same line
          var modeCache = Mode;
          Mode = FormatMode.MultilineAssignment;
-         var __i = beautifyMultilineIf(inputs, result, settings, i, indent), i = __i[0], inputs = __i[1];
+         var __i = beautifyMultilineIf(inputs, result, settings, i, indent), i = __i[0], endIndex = __i[1], inputs = __i[2];
          errorCheck(inputs, result, i, a)
          Mode = modeCache;
          continue;

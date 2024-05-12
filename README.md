@@ -18,6 +18,49 @@ And type `Format Document`
 
 If you don't like the defaults shortcuts, you can rebind `editor.action.formatDocument`in the keyboard shortcuts menu of VSCode.
 
+## Multiline support
+### Default values
+Pretty VHDL supports different coding styles to assign a default value to a constant, variable or signal.
+
+The following conde shows how the allignment for default values works.
+```vhdl
+-- the line below contains no opening bracket after the assignment symbol, so everything is alligned to the assignment symbol
+constant C_CONSTANT : std_logic_vector := first_value and  
+                                          second_value;
+
+-- the line below contains an opening bracket after the assignment symbol without anything else, so the next lines get just one indent extra
+constant C_CONSTANT : type_whatever := (
+  first_value,
+  second_value
+);
+
+-- the line below contains an opening bracket after the assignment symbol followed by the first part of the initial value, so the next lines are alligned to the first character of the first part of the initial value
+constant C_CONSTANT : type_whatever := (first_value,
+                                        second_value);
+                                
+```
+### Functions and procedures
+For functions and procedures containing a lot of arguments, pretty VHDL forces the format shown in the code extract below. Please notice that the argument declarations expect each argument to be declared on one line. So multiline declarations of arguments of functions or procedures are not supported. Opening and closing brackets are forced to be as in the code snippet below.
+```vhdl
+function example(
+  constant input1  : integer;
+  constant input2  : boolean;
+  constant output1 : std_logic_vector
+) return integer;
+
+procedure example(
+  constant input1  : integer;
+  constant input2  : boolean;
+  constant output1 : std_logic_vector
+) is
+begin
+...
+end procedure;
+
+```
+### If ... elsif
+
+
 ## Demo
 
 ![Demo](https://github.com/kv-be/pretty-vhdl/raw/main/resources/entity.gif)
