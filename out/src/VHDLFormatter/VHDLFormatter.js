@@ -865,7 +865,8 @@ function AlignSign_(result, startIndex, endIndex, symbol, mode, exclude, indenta
       exclude = /\r\r/
    }
    for (var i = startIndex; i <= endIndex; i++) {
-      var line = result[i].Line;
+      // mask out (other => <whatever>) constructs           
+      var line = result[i].Line.replaceAll(/\(OTHERS => /g, "OOOOOOOOOOO");
 
       if (((symbol == ":") || (symbol == "(:|<)=")) && line.regexStartsWith(labelAndKeywordsRegex)) {
          forcedBlockEnd = true;
@@ -881,14 +882,15 @@ function AlignSign_(result, startIndex, endIndex, symbol, mode, exclude, indenta
          maxSymbolIndex = Math.max(maxSymbolIndex, colonIndex);
          maxIndent = Math.max(maxIndent, result[i].Indent);
          symbolIndices[i] = colonIndex;
-         if ((symbol === "(:|<)=") && (result[i].Line.indexOf(";") < 0)) { // if a multiline assignment using when else OR last argument of function or procedure call!
+         if (((symbol == ":") || (symbol === "(:|<)=")) && (result[i].Line.indexOf(";") < 0)) { // if a multiline assignment using when else OR last argument of function or procedure call!
             //if a multiline assignment, additional spaces are padded with ILForceSpace
             //so if we detect on ILForceSpace, we know if multiline or not
             var text = ""
             var l = i
+            var starting_bracket = (countOpenBrackets(result[l].Line) > 0) && (symbol === "(:|<)=")
             do {
                l++
-               text = text + " " + result[l].Line
+               text = text + " " + result[l].Line.replaceAll(/\(OTHERS => /g, "OOOOOOOOOOO");
             } while ((result[l].Line.indexOf(";") === -1) && (l < result.length)) //search for the next ;
             if (text.indexOf(ILForceSpace) >= 0) {// ILForceSpace found => indeed multiline assignment...
 
@@ -910,7 +912,14 @@ function AlignSign_(result, startIndex, endIndex, symbol, mode, exclude, indenta
                   i++
                   if ((i <= endIndex) && (result[i].Line.indexOf(ILForceSpace) === 0)) {
                      //by setting the symbolIndex to -colonIndex tells to the AlignSign to just add spaces
+                     var ending_bracket = (countOpenBrackets(result[i].Line) < 0) && (symbol === "(:|<)=") && (result[i].Line.replaceAll(ILForceSpace, "").indexOf(")") === 0)
                      symbolIndices[i] = colonIndex * -1;
+                     if (starting_bracket) (
+                        symbolIndices[i]++
+                     )
+                     if (ending_bracket) {
+                        symbolIndices[i]--
+                     }
                   } else {
                      break;
                   }
@@ -946,6 +955,7 @@ function AlignSign(result, startIndex, endIndex, symbol, maxSymbolIndex, symbolI
       return;
    }
    for (var lineIndex in symbolIndices) {
+      var padding = " "
       var symbolIndex = symbolIndices[lineIndex];
 
       var line = result[lineIndex].Line;
@@ -959,9 +969,11 @@ function AlignSign(result, startIndex, endIndex, symbol, maxSymbolIndex, symbolI
          noSpaces = Math.max(noSpaces + (maxIndent - result[lineIndex].Indent) * indentation, 0)
 
       }
-
+      if (line.indexOf(ILForceSpace) === 0) {
+         padding = ILForceSpace
+      }
       result[lineIndex].Line = line.substring(0, symbolIndex)
-         + (Array(noSpaces).join(" "))
+         + (Array(noSpaces).join(padding))
          + line.substring(symbolIndex);
    }
 }
