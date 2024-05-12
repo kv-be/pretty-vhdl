@@ -20,6 +20,8 @@ var FormatMode;
    FormatMode[FormatMode["functionOrProcedure"] = 5] = "functionOrProcedure";
    FormatMode[FormatMode["WithSelect"] = 6] = "WithSelect";
    FormatMode[FormatMode["MultilineAssignment"] = 7] = "MultilineAssignment";
+   FormatMode[FormatMode["functionOrProcedureDeclare"] = 8] = "functionOrProcedureDeclare";
+
    /*FormatMode[FormatMode["MultilineAssignment"] = 7] = "MultilineAssignment";
    FormatMode[FormatMode["MultilineAssignment"] = 7] = "MultilineAssignment";
    FormatMode[FormatMode["MultilineAssignment"] = 7] = "MultilineAssignment";*/
@@ -1429,6 +1431,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
    var regexFunctionMultiLineBlockKeyWords = new RegExp(/(FUNCTION|IMPURE FUNCTION)[^\w](?=.+[^\w]IS([^\w]|$))/); //match FUNCTION .. IS; but not FUNCTION
    var blockMidKeyWords = ["BEGIN"];
    var blockStartsKeyWords = [
+      "IF",
       "CASE",
       "ARCHITECTURE",
       "PROCEDURE",
@@ -1540,9 +1543,10 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
       }
       if (input.regexStartsWith(/\s*(\bSIGNAL\b|\bCONSTANT\b|\bVARIABLE\b|\bALIAS\b).*:[^;]+$/)) {
          // signal or constant assignment on multiple lines IF not part of an argument list of a function or procedure!!!
-         if (!containsBeforeNextSemicolon(inputs, i, /\bIS\b/)) { // if the text doesn't contain IS, the line is a multiline declaration. In the other case, it is the last line of a function or procedure declaration.
+         if ((!containsBeforeNextSemicolon(inputs, i, /\bIS\b/)) && (Mode != FormatMode.functionOrProcedureDeclare)) {
+            // multiline signal and constants are not supported as arguments of a procedure or function
             var modeCache = Mode;
-            Mode = FormatMode.MultilineAssignment;
+            //Mode = FormatMode.MultilineAssignment;
             var __i = beautifyMultilineDefault(inputs, result, settings, i, indent), i = __i[0], inputs = __i[1]
             errorCheck(inputs, result, i, a)
             Mode = modeCache;
@@ -1586,10 +1590,13 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          continue;
       }
       if (input.regexStartsWith(/^(?!.*\bis$)PROCEDURE[\s\w]+\(.*/)) {
+         var modeCache = Mode;
+         Mode = FormatMode.functionOrProcedureDeclare
          _h = beautifyPortGenericBlock(inputs, result, settings, i, endIndex, indent, "PROCEDURE"), i = _h[0], endIndex = _h[1];
          if (inputs[i].regexStartsWith(/.*\)[\s]*IS/)) {
             _o = beautify3(inputs, result, settings, i + 1, indent + 1), i = _o[0], endIndex = _o[1], inputs = _o[2];
          }
+         Mode = modeCache
          errorCheck(inputs, result, i, a)
          continue;
       }
