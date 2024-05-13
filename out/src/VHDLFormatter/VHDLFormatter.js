@@ -882,9 +882,6 @@ function AlignSign_(result, startIndex, endIndex, symbol, mode, exclude, indenta
       }*/
 
       isIf = (result[i].Line.trim().search(/\b(IF|ELSIF)\b/) === 0) || isIf
-      if (result[i].Line.indexOf("THEN") > -1) {
-         isIf = false
-      }
       var endingInBracket
       var colonIndex = line.regexIndexOf(regex);
       if (colonIndex > 0 && (line.search(exclude) < 0) && !forcedBlockEnd && !isIf) {
@@ -966,6 +963,11 @@ function AlignSign_(result, startIndex, endIndex, symbol, mode, exclude, indenta
          maxIndent = -1
          forcedBlockEnd = false
       }
+      if (result[i].Line.indexOf("THEN") > -1) {
+         isIf = false
+      }
+
+
    }
    if (startLine < endIndex) // if cannot find the symbol, a block of symbols ends
    {
