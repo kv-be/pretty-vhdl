@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.RemoveAsserts = exports.ApplyNoNewLineAfter = exports.beautify3 = exports.beautifySemicolonBlock = exports.containsBeforeNextSemicolon = exports.countOpenBrackets = exports.beautifyEntity = exports.beautifyComponentBlock = exports.beautifyWhenBlock = exports.beautifyCaseBlock = exports.beautifyWithSelect = exports.beautifyMultilineIf = exports.beautifyMultilineDefault = exports.AlignSign = exports.AlignSigns = exports.beautifyPortGenericBlock = exports.FormattedLineToString = exports.FormattedLine = exports.beautify = exports.BeautifierSettings = exports.signAlignSettings = exports.SetNewLinesAfterSymbols = exports.NewLineSettings = void 0;
+exports.RemoveAsserts = exports.ApplyNoNewLineAfter = exports.beautify3 = exports.beautifySemicolonBlock = exports.containsBeforeNextSemicolon = exports.countOpenBrackets = exports.beautifyEntity = exports.beautifyComponentBlock = exports.beautifyWhenBlock = exports.beautifyCaseBlock = exports.beautifyWithSelect = exports.beautifyMultilineIf = exports.beautifySignalAssignment = exports.beautifyMultilineDefault = exports.AlignSign = exports.AlignSigns = exports.beautifyPortGenericBlock = exports.FormattedLineToString = exports.FormattedLine = exports.beautify = exports.BeautifierSettings = exports.signAlignSettings = exports.SetNewLinesAfterSymbols = exports.NewLineSettings = void 0;
 var isTesting = false;
 var ILEscape = "@@";
 var ILCommentPrefix = ILEscape + "comments";
@@ -890,63 +890,30 @@ function AlignSign_(result, startIndex, endIndex, symbol, mode, exclude, indenta
          maxIndent = Math.max(maxIndent, result[i].Indent);
          symbolIndices[i] = colonIndex;
 
-         // the problem here is that I now have logic for the multiline default stuff, but we also need the same for the multiline if and elsif.
-         if (((symbol == ":") || (symbol === "(:|<)=")) && (result[i].Line.indexOf(";") < 0)) { // if a multiline assignment using when else OR last argument of function or procedure call!
-            //if a multiline assignment or if, additional spaces are padded with ILForceSpace
-            //so if we detect on ILForceSpace, we know if multiline or not
+         // IF ELSE constructs are padded with ILForcedSpace
+         // signal declarations and default values are padded with ILForcedSpace
+         // WHEN .. ELSE constructs are padded wit ILForcedSpace
+         // function calls play with the indent
+         // so only thing to apply here is the correct alignment spaces
+         if (((symbol == ":") || (symbol === "(:|<)=")) && (result[i].Line.indexOf(";") < 0)) {
             var text = ""
-            var l = i
-            var starting_bracket = (countOpenBrackets(result[l].Line) > 0) && (symbol === "(:|<)=")
-            endingInBracket = result[l].Line.replace(/@@comment.*/, "").trim() // filter off possible comments and spaces at the end
-            // check if the line ends in a "(" without anything else. 
-            // If so => next lines only need indent
-            // else align to the symbol
-            endingInBracket = endingInBracket[endingInBracket.length - 1] === "("
+            var endOfMultline = i
+            // here we detect when the ; is seen. In case of a multiline declaration, we need to fast forward 
+            // to the end of the declaration
             do {
-               l++
-               text = text + " " + result[l].Line.replaceAll(/\(OTHERS => /g, "OOOOOOOOOOO");
-            } while (((result[l].Line.indexOf(";") === -1) && (!isIf)) && (l < result.length)) //search for the next ;
+               endOfMultline++
+               text = text + " " + result[endOfMultline].Line.replaceAll(/\(OTHERS => /g, "OOOOOOOOOOO");
+            } while (((result[endOfMultline].Line.indexOf(";") === -1) && (!isIf)) && (endOfMultline < result.length)) //search for the next ;
             if (text.indexOf(ILForceSpace) >= 0) {// ILForceSpace found => indeed multiline assignment...
-
-               /*var text = ""
-               var l = i
-               do {
-                  l++
-                  text = text + " " + result[l].Line
-               } while ((result[l].Line.indexOf(";") === -1) && (l < result.length)) //search for the next ;
-               if (text.indexOf("IS") < 0) {// no IS defined => indeed multiline assignment...
-                  var m = line.match(/([ ]+) :/) //detect leading spaces
-                  var spaces = 0
-                  if (m) {
-                     spaces = m[1].length
-                  }*/
-               //if assignment found not ending in ; => multiline, so search for ending ;
-               //and add the same space padding in front to let the second lines allign
+               // fast forward over the rest of the multiline declaration 
                do {
                   i++
-                  if ((i <= endIndex) && (result[i].Line.indexOf(ILForceSpace) === 0)) {
-                     //by setting the symbolIndex to -colonIndex tells to the AlignSign to just add spaces
-                     var ending_bracket = (countOpenBrackets(result[i].Line) < 0) && (symbol === "(:|<)=") && (result[i].Line.replaceAll(ILForceSpace, "").indexOf(")") === 0)
-                     if (endingInBracket) {
-                        if (!ending_bracket) {
-                           result[i].Line = ILForceSpace.repeat(indentation.length) + result[i].Line.replaceAll(/^[⨹]+/g, "")
-                        } else {
-                           result[i].Line = result[i].Line.replaceAll(/^[⨹]+/g, "")
-                        }
-
-                     } else {
-                        symbolIndices[i] = colonIndex * -1;
-                        if (starting_bracket) (
-                           symbolIndices[i]++
-                        )
-                        if (ending_bracket) {
-                           symbolIndices[i]--
-                        }
-                     }
+                  if ((i <= endOfMultline) && (result[i].Line.indexOf(ILForceSpace) === 0)) {
+                     symbolIndices[i] = colonIndex * -1;
                   } else {
                      break;
                   }
-               } while (result[i].Line.indexOf(ILForceSpace) === 0) // must be === 0 since case statements have also forced spaces but not at the start of a line
+               } while (endOfMultline > i) // must be === 0 since case statements have also forced spaces but not at the start of a line
                i-- //we detect that a line doesn't contain a forced space anymore, so we need to decrement i to let this line parse again in the main lop
             }
          }
@@ -1031,7 +998,7 @@ exports.beautifyCaseBlock = beautifyCaseBlock;
 function getMatchingClosingBrackets(inputs, startIndex) {
    var bracketlevel = 0
    for (var i = startIndex; i < inputs.length; i++) {
-      bracketlevel = bracketlevel + countOpenBrackets(inputs[i])
+      bracketlevel = bracketlevel + countOpenBrackets(inputs[i])[0]
       if (bracketlevel <= 0) { // smaller or equal since if a line starts with a closing bracket, we are doomed
          return i
       }
@@ -1103,6 +1070,73 @@ function beautifyMultilineDefault(inputs, result, settings, startIndex, indent) 
 }
 
 exports.beautifyMultilineDefault = beautifyMultilineDefault;
+
+function beautifySignalAssignment(inputs, result, settings, startIndex, indent) {
+   var start = startIndex
+   var endIndex = getSemicolonBlockEndIndex(inputs, settings, startIndex, inputs.length - 1)
+   var openBrackets = 0
+   var lastClosingBracket = -1
+   var totalBrackets = 0
+   var lastOpenBracket = -1
+   var paddingSpaces = 0
+   var nextLinePadding = 0
+   endIndex = endIndex[0]
+   if (inputs[endIndex].indexOf(";") < 0) {
+      endIndex = endIndex + 1
+   }
+   var defaultValueIndex = getNextSymbolIndex(inputs, startIndex, ":=", endIndex);
+   var hasDefaultValue = (defaultValueIndex >= 0)
+   var defaultAssignmentSpace = -1
+   if (hasDefaultValue) {
+      defaultAssignmentSpace = inputs[defaultValueIndex].trim().indexOf(":=")
+   }
+
+   for (var i = startIndex; i <= endIndex; i++) {
+      var __i = countOpenBrackets(inputs[i]), openBrackets = __i[0], lastOpenBracket = __i[1], lastClosingBracket = __i[2]
+      var assignmentSpace = inputs[i].indexOf(":=")
+      totalBrackets = totalBrackets + openBrackets
+      if (nextLinePadding > 0) {
+         paddingSpaces = nextLinePadding
+         nextLinePadding = 0
+      }
+      if (openBrackets > 0) {
+         // we are on a line with a opening bracket
+
+         nextLinePadding = lastOpenBracket + 1
+      } else {
+         if (openBrackets < 0) {
+            // we are on a line with a closing bracket
+            if (inputs[i].trim().search(/\)/) === 0) {
+               // if the line only contains a );
+               paddingSpaces--
+               nextLinePadding = 0
+            } else {
+               // a line with a closing bracket and something else 
+               var nothing_is_done = true
+               nextLinePadding = Math.max(paddingSpaces - 1, 0)
+            }
+         }
+         else {
+            // no additional level of brackets found => stuff with the current padding
+            if (assignmentSpace > -1) {
+               //line contains a default assignment operator, but has no extra brackets => align on that
+               nextLinePadding = assignmentSpace + 3 + paddingSpaces// + 3 since the assignment is 2 long + 1 normal space
+               if ((totalBrackets > 0) && (lastOpenBracket >= 0) && (lastClosingBracket >= 0) && (lastClosingBracket < lastOpenBracket)) {
+                  // case where e.g. declaration brackets close and default brackets open
+                  // so this line contains something line ) := (
+                  paddingSpaces--
+                  nextLinePadding = paddingSpaces + lastOpenBracket + 1
+               }
+            }
+         }
+      }
+      result.push(new FormattedLine(ILForceSpace.repeat(paddingSpaces) + inputs[i], indent));
+   }
+   i--
+   return [i, inputs];
+}
+exports.beautifySignalAssignment = beautifySignalAssignment;
+
 /*
 
 // this code supports multiple function calls in signal assignments, but removes the nice allignment of e.g. arrays
@@ -1415,15 +1449,30 @@ exports.beautifySemicolonBlock = beautifySemicolonBlock;
 
 function countOpenBrackets(input) {
    var brackets = 0
+   var lastOpenBracket = []
+   var lastClosingBracket = []
    for (var j = 0; j < input.length; j++) {
       if (input[j] === "(") {
          brackets = brackets + 1
+         lastOpenBracket.push(j) // add a bracket level
+
       }
       if (input[j] === ")") {
          brackets = brackets - 1
+         lastClosingBracket.push(j)
+         if ((lastOpenBracket.length > 1) && (brackets >= 0)) {
+            // the (brackets > 0) make that lines starting with closing brackets
+            // keep this position. We first need more opening brackets than closing ones before we start
+            // deleting earlier closing ones 
+            lastOpenBracket = lastOpenBracket.slice(0, lastOpenBracket.length - 1) // remove the opening brackets position
+            if (lastClosingBracket.length > 1) {
+               lastClosingBracket = lastClosingBracket.slice(0, lastClosingBracket.length - 1) // remove the opening brackets position
+            }
+
+         }
       }
    }
-   return brackets
+   return [brackets, lastOpenBracket[lastOpenBracket.length - 1], lastClosingBracket[lastClosingBracket.length - 1]]
 }
 exports.countOpenBrackets = countOpenBrackets;
 
@@ -1443,9 +1492,13 @@ function containsBeforeNextSemicolon(inputs, startindex, symbol) {
 }
 exports.containsBeforeNextSemicolon = containsBeforeNextSemicolon;
 
-function getNextSymbolIndex(inputs, startindex, symbol) {
+function getNextSymbolIndex(inputs, startindex, symbol, endIndex) {
    var j = startindex
-   for (j = startindex; j < inputs.length; j++) {
+   var end = inputs.length
+   if (endIndex) {
+      end = endIndex
+   }
+   for (j = startindex; j < end; j++) {
       if (inputs[j].indexOf(symbol) >= 0) {
          return j
       }
@@ -1590,7 +1643,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
             // multiline signal and constants are not supported as arguments of a procedure or function
             var modeCache = Mode;
             //Mode = FormatMode.MultilineAssignment;
-            var __i = beautifyMultilineDefault(inputs, result, settings, i, indent), i = __i[0], inputs = __i[1]
+            var __i = beautifySignalAssignment(inputs, result, settings, i, indent), i = __i[0], inputs = __i[1]
             errorCheck(inputs, result, i, a)
             Mode = modeCache;
             continue;
@@ -1691,7 +1744,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
       ) {
          //multiline function or procedure or assignment or slice of a port assignment  f(0) => '0' 
          var modeCache = Mode;
-         var brackets = countOpenBrackets(input)
+         var brackets = countOpenBrackets(input)[0]
          if (brackets > 0) {
             Mode = FormatMode.functionOrProcedure;
             _l = beautifySemicolonBlock(inputs, result, settings, i, endIndex, indent), i = _l[0], endIndex = _l[1], inputs = _l[2];
