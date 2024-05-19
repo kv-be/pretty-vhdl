@@ -18,13 +18,37 @@ And type `Format Document`
 
 If you don't like the defaults shortcuts, you can rebind `editor.action.formatDocument`in the keyboard shortcuts menu of VSCode.
 
+## Disabling Pretty VHDL locally
+It is impossible to support all kinds of possible scenarios which are possible. In case you are not satisfied with the alignment enforced by Pretty VHDL, you can use the magical comments below to disable the tool to a range of lines.
+```vhdl
+--autoformat_off
+
+--autoformat_on
+```
+
 ## Multiline support
+### Declarations
+Coding style hint: when a signal declaration becomes complex, consider using constants to simplify it.
+
+```vhdl
+signal a : std_logic_vector(C_VERY_LONG_CONSTRUCT
+                            downto 
+                            C_ANOTHER_VERY_LONG_CONSTRUCTION
+                           ) := (
+
+                           );
+
+signal a : std_logic_vector(C_VERY_LONG_CONSTRUCT
+                            downto 
+                            C_ANOTHER_VERY_LONG_CONSTRUCTION);
+```
 ### Default values
 Pretty VHDL supports different coding styles to assign a default value to a constant, variable or signal.
+Coding style hint: when a default value calculation is really complex, consider putting the calculation into a function.
 
 The following conde shows how the allignment for default values works.
 ```vhdl
--- the line below contains no opening bracket after the assignment symbol, so everything is alligned to the assignment symbol
+-- In the line below the default value assignment contains no opening bracket after the assignment symbol, so everything is alligned to the assignment symbol
 constant C_CONSTANT : std_logic_vector := first_value and  
                                           second_value;
 
@@ -38,7 +62,31 @@ constant C_CONSTANT : type_whatever := (
 constant C_CONSTANT : type_whatever := (first_value,
                                         second_value);
                                 
+constant C_CONSTANT : type_whatever := (first_value,
+                                        second_value
+                                       );
 ```
+### Types
+```vhdl
+-- the line below contains no opening bracket after the assignment symbol, so everything is alligned to the assignment symbol
+type t_enum is(one,
+               two, 
+               three);  
+
+type t_enum is(one,
+               two, 
+               three
+              );  
+
+type t_enum is(
+  one,
+  two, 
+  three
+);  
+                                
+```
+
+
 ### Functions and procedures
 For functions and procedures containing a lot of arguments, pretty VHDL forces the format shown in the code extract below. Please notice that the argument declarations expect each argument to be declared on one line. So multiline declarations of arguments of functions or procedures are not supported. Opening and closing brackets are forced to be as in the code snippet below.
 ```vhdl
@@ -59,8 +107,37 @@ end procedure;
 
 ```
 ### If ... elsif
+The current implementation of Pretty VHDL supports multiline if statements with one level of multiline brackets. An example is given below.
 
+```vhdl
+if ( a < 5 and
+     b > 7
+   ) then 
+...
+end if;
 
+if ( a < 5 and
+     b > 7
+   ) or
+   (c = 9) then 
+...
+end if;
+```
+What is not supported is multiple levels of brackets spread over dfferent lines as in the example below. In such cases it is almost always better to use variables, constants or intermediate signals to simplify the if condition.
+```vhdl
+if ((a < 5 and
+     b > 7
+    ) or
+    (
+     a > 7 and
+     b = 6
+    )   
+   ) or 
+   (c = 9) then 
+...
+end if;
+
+```
 ## Demo
 
 ![Demo](https://github.com/kv-be/pretty-vhdl/raw/main/resources/entity.gif)
