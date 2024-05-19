@@ -1504,11 +1504,11 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
       "ASSERT"
    ];
    var multilineAssignment = [
-      "([\\w\\\\]+[\\s]*<=)",
-      "([\\w\\\\]+[\\s]*:=)"
+      "(^\\s*[\\S\\\\]+[\\s]*<=)",
+      "(^\\s*[\\S\\\\]+[\\s]*:=)"
    ]
    var functionOrProcedure = [
-      "([a-zA-Z0-9_.]+[\\s]*\\(.*)",
+      "(?!.*<=)^\\s*[a-zA-Z0-9_.]+[\\s]*\\([^;]*$", // at the start of the line, any valid name follwed by a ( and then whatever as long as it doesn't contain <= nor ; 
       "(([\\s\\S]+?[\\s]*(<|:)=)[\\s]*[a-zA-Z0-9_.]+[\\s]*\\(.*)"
    ];
    var regexBlockEndsKeyWords = blockEndsKeyWords.convertToRegexBlockWords();
