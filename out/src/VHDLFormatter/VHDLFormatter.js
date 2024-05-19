@@ -839,7 +839,7 @@ function AlignSigns(result, startIndex, endIndex, mode, indentation) {
    // except IS added to prevent var declarations in functions or procedures align to arguments defs
    // except ) at the beginning of the line is to break allignment for signals with multiline defaults
    // except procedure or function at the beginning of the line is to prevent that arguments of procs or functions are aliggned with signals above
-   AlignSign_(result, startIndex, endIndex, ":", mode, "(\\bIS\\b|^\\s*\\)|(^\\s*PROCEDURE)|(^\\s*FUNCTION))", indentation);
+   AlignSign_(result, startIndex, endIndex, ":", mode, "(^(?!ATTRIBUTE)\\bIS\\b|^\\s*\\)|(^\\s*PROCEDURE)|(^\\s*FUNCTION))", indentation);
    // exlude when and if since the smaller than or equal operator is the same as the assignment operator, but we don't want to align on that
    AlignSign_(result, startIndex, endIndex, "(:|<)=", mode, "(^\(?!.*;\).*\\b(when|IF|ELSIF)\\b.*|^\\s*\\))", indentation);
    AlignSign_(result, startIndex, endIndex, "=>", mode, "\r\r", indentation);
