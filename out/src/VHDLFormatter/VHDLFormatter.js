@@ -1160,7 +1160,7 @@ function beautifySignalAssignment(inputs, result, settings, startIndex, indent) 
                paddingSpaces = openBracketList[openBracketList.length - 1] + 1
             } else { // last line with closing bracket
                paddingSpaces = 0
-               if ((inputs[i].trim().indexOf(")") != -1) && (inputs[i].trim()[0] != ")")) {
+               if ((inputs[i].trim().indexOf(")") != -1) && (inputs[i].trim()[0] != ")") && (openBrackets < 0)) {
                   //if closing bracket NOT at the start of a line        
                   if (totalBrackets === 0) {
                      paddingSpaces = 0
