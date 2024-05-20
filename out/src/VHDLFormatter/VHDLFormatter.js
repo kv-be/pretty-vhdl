@@ -536,6 +536,9 @@ function beautify(input, settings) {
       input = arr.join("\r\n");
    }
    input = input.replace(/([a-zA-Z0-9\); ])\);(@@comments[0-9]+)?@@end/g, '$1\r\n);$2@@end');
+   input = input.replace(/(\S+)<=(\S+)/g, '$1 <= $2')
+   input = input.replace(/(\S+):=(\S+)/g, '$1 := $2')
+   input = input.replace(/(\S+)=>(\S+)/g, '$1 => $2')
    //input = input.replace(/[ ]?([&=:\-\+|\*><]{1}[ ]?/g, ' $1 ');
    input = input.replace(/(?<=[a-z0-9A-Z])[ ]?([&=:\-\+*></]{1})[ ]?(?=[a-z0-9A-Z])/g, ' $1 '); // space after operator + - / * & = > <
    input = input.replace(/(?<=[a-z0-9A-Z])[ ]?((=>|<=|!=|:=|\*\*){1})[ ]?(?=[a-z0-9A-Z])/g, ' $1 '); // space after operator + - / * & = > <
@@ -1078,8 +1081,10 @@ function beautifySignalAssignment(inputs, result, settings, startIndex, indent) 
    var lastClosingBracket = -1
    var totalBrackets = 0
    var lastOpenBracket = -1
+   var openBracketList = []
    var paddingSpaces = 0
    var nextLinePadding = 0
+   var basePadding = 0
    endIndex = endIndex[0]
    if (inputs[endIndex].indexOf(";") < 0) {
       endIndex = endIndex + 1
@@ -1094,8 +1099,83 @@ function beautifySignalAssignment(inputs, result, settings, startIndex, indent) 
    for (var i = startIndex; i <= endIndex; i++) {
       var __i = countOpenBrackets(inputs[i]), openBrackets = __i[0], lastOpenBracket = __i[1], lastClosingBracket = __i[2]
       var assignmentSpace = inputs[i].indexOf(":=")
+      if ((assignmentSpace > -1) && (i > startIndex)) {
+         // at the level of the assignment, the bracket level should be 0
+         // so to get the next alignment, we filter all brackets before the assignment
+         // add one dummy entry to be able to reuse the mechanism
+         // this adds a virtual starting ( at position 0
+         totalBrackets = 1
+         openBracketList = [-1]
+         let line = inputs[i].slice(assignmentSpace + 2).trim() // + 2 to get the := out of it
+         paddingSpaces = 0
+         // this line will return the offsets relative to the :=
+         __i = countOpenBrackets(line), openBrackets = __i[0], lastOpenBracket = __i[1], lastClosingBracket = __i[2]
+
+      }
       totalBrackets = totalBrackets + openBrackets
-      if (nextLinePadding > 0) {
+      openBracketList = openBracketList.concat(lastOpenBracket)
+
+      if (inputs[i].trim().indexOf(")") === 0) {
+         //if closing bracket at the start of a line         
+         paddingSpaces = openBracketList[openBracketList.length - 1]
+         if (totalBrackets === 0) {
+            paddingSpaces = 0
+            basePadding--
+         }
+      }
+      if (openBrackets < 0) {
+         openBracketList = openBracketList.slice(0, openBracketList.length + openBrackets)
+      }
+      result.push(new FormattedLine(ILForceSpace.repeat(paddingSpaces + basePadding) + inputs[i], indent));
+
+      if (i === startIndex) {
+         if (openBracketList.length > 0) {
+            // if there is an open bracket on the first line, align on this one, since it is normally behind the := 
+            basePadding = openBracketList[0] + 1
+            if (totalBrackets > 1) { // if more than 1 bracket on the first line
+               paddingSpaces = openBracketList[openBracketList.length - 1] + 1
+            } else {
+               paddingSpaces = 0
+            }
+
+         } else if (assignmentSpace > -1) {
+            // no open brackets, but a default value on the first line
+            basePadding = assignmentSpace + 3 //+3 to get past the :=
+            if (lastOpenBracket.length > 0) {
+               // assignment and open bracket on the same line
+               basePadding = basePadding + lastOpenBracket[lastOpenBracket.length - 1]
+            }
+         }
+      }
+      else {
+         // not on the first line 
+         if (assignmentSpace > -1) {
+            basePadding = basePadding + inputs[i].slice(0, assignmentSpace).length + 2 //+3 to get the := in it
+
+            if (totalBrackets > 0) { // if more than 1 bracket on the first line
+               paddingSpaces = openBracketList[openBracketList.length - 1] + 1
+            }
+         } else {
+            if ((openBracketList.length > 1) && (totalBrackets > 1)) {
+               paddingSpaces = openBracketList[openBracketList.length - 1] + 1
+            } else { // last line with closing bracket
+               paddingSpaces = 0
+               if ((inputs[i].trim().indexOf(")") != -1) && (inputs[i].trim()[0] != ")")) {
+                  //if closing bracket NOT at the start of a line        
+                  if (totalBrackets === 0) {
+                     paddingSpaces = 0
+                     basePadding--
+                  } else {
+                     paddingSpaces = openBracketList[openBracketList.length - 1]
+                  }
+               }
+            }
+         }
+      }
+      if (!paddingSpaces) {
+         paddingSpaces = 0
+      }
+      /*if (nextLinePadding > 0) {
          paddingSpaces = nextLinePadding
          nextLinePadding = 0
       }
@@ -1131,6 +1211,7 @@ function beautifySignalAssignment(inputs, result, settings, startIndex, indent) 
          }
       }
       result.push(new FormattedLine(ILForceSpace.repeat(paddingSpaces) + inputs[i], indent));
+      */
    }
    i--
    return [i, inputs];
@@ -1446,7 +1527,7 @@ function beautifySemicolonBlock(inputs, result, settings, startIndex, parentEndI
    return [endIndex, parentEndIndex + (endIndex - orgEndIndex), inputs];
 }
 exports.beautifySemicolonBlock = beautifySemicolonBlock;
-
+/*
 function countOpenBrackets(input) {
    var brackets = 0
    var lastOpenBracket = []
@@ -1473,6 +1554,35 @@ function countOpenBrackets(input) {
       }
    }
    return [brackets, lastOpenBracket[lastOpenBracket.length - 1], lastClosingBracket[lastClosingBracket.length - 1]]
+}
+*/
+function countOpenBrackets(input, totatlBrackets = 0) {
+   var brackets = 0
+   var lastOpenBracket = []
+   var lastClosingBracket = []
+   for (var j = 0; j < input.length; j++) {
+      if (input[j] === "(") {
+         brackets = brackets + 1
+         if (lastOpenBracket.length > 0) {
+            lastOpenBracket.push(j - lastOpenBracket[0] - 1) // add a bracket level
+         } else {
+            lastOpenBracket.push(j)
+         }
+      }
+
+      if (input[j] === ")") {
+         brackets = brackets - 1
+         lastClosingBracket.push(j)
+         if ((lastOpenBracket.length > 0) && ((totatlBrackets + brackets) >= 0)) {
+            lastOpenBracket = lastOpenBracket.slice(0, lastOpenBracket.length - 1) // remove the opening brackets position
+            if (lastClosingBracket.length > 0) {
+               lastClosingBracket = lastClosingBracket.slice(0, lastClosingBracket.length - 1) // remove the opening brackets position
+            }
+
+         }
+      }
+   }
+   return [brackets, lastOpenBracket, lastClosingBracket[lastClosingBracket.length - 1]]
 }
 exports.countOpenBrackets = countOpenBrackets;
 
