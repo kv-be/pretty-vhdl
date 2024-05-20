@@ -10,6 +10,7 @@ var ILSingleQuote = "⦼";
 var ILBackslash = "⨸";
 var ILForceSpace = "⨹";
 var ILSemicolon = "⨴";
+var ILNoAlignmentCorrection = "ª"
 var FormatMode;
 (function (FormatMode) {
    FormatMode[FormatMode["Default"] = 0] = "Default";
@@ -647,6 +648,7 @@ function beautify(input, settings) {
    input = input.replace(/\r\n/g, settings.EndOfLine);
 
    input = input.replace(new RegExp(ILForceSpace, "g"), " ")
+   input = input.replace(new RegExp(ILNoAlignmentCorrection, "g"), " ")
    if (settings.AddNewLine && !input.endsWith(settings.EndOfLine)) {
       input += settings.EndOfLine;
    }
@@ -867,7 +869,7 @@ function AlignSign_(result, startIndex, endIndex, symbol, mode, exclude, indenta
    var colonIndex = 0
    var maxIndent = 0
    var forcedBlockEnd = false
-   var isIf = false
+   var skipLine = false
    if (typeof exclude === 'undefined') {
       exclude = /\r\r/
    }
@@ -884,10 +886,10 @@ function AlignSign_(result, startIndex, endIndex, symbol, mode, exclude, indenta
           continue;
       }*/
 
-      isIf = (result[i].Line.trim().search(/\b(IF|ELSIF)\b/) === 0) || isIf
-      var endingInBracket
+      skipLine = (result[i].Line.trim().search(/\b(IF|ELSIF)\b/) === 0) || skipLine
+      skipLine = skipLine || (result[i].Line.trim().search(ILNoAlignmentCorrection) > -1)
       var colonIndex = line.regexIndexOf(regex);
-      if (colonIndex > 0 && (line.search(exclude) < 0) && !forcedBlockEnd && !isIf) {
+      if (colonIndex > 0 && (line.search(exclude) < 0) && !forcedBlockEnd && !skipLine) {
          //the WHEN lines in a case do
          maxSymbolIndex = Math.max(maxSymbolIndex, colonIndex);
          maxIndent = Math.max(maxIndent, result[i].Indent);
@@ -906,7 +908,7 @@ function AlignSign_(result, startIndex, endIndex, symbol, mode, exclude, indenta
             do {
                endOfMultline++
                text = text + " " + result[endOfMultline].Line.replaceAll(/\(OTHERS => /g, "OOOOOOOOOOO");
-            } while (((result[endOfMultline].Line.indexOf(";") === -1) && (!isIf)) && (endOfMultline < result.length)) //search for the next ;
+            } while (((result[endOfMultline].Line.indexOf(";") === -1) && (!skipLine)) && (endOfMultline < result.length)) //search for the next ;
             if (text.indexOf(ILForceSpace) >= 0) {// ILForceSpace found => indeed multiline assignment...
                // fast forward over the rest of the multiline declaration 
                do {
@@ -933,8 +935,8 @@ function AlignSign_(result, startIndex, endIndex, symbol, mode, exclude, indenta
          maxIndent = -1
          forcedBlockEnd = false
       }
-      if (result[i].Line.indexOf("THEN") > -1) {
-         isIf = false
+      if ((result[i].Line.indexOf("THEN") > -1) || (result[i].Line.indexOf(";") > -1)) {
+         skipLine = false
       }
 
 
@@ -1075,25 +1077,18 @@ function beautifyMultilineDefault(inputs, result, settings, startIndex, indent) 
 exports.beautifyMultilineDefault = beautifyMultilineDefault;
 
 function beautifySignalAssignment(inputs, result, settings, startIndex, indent) {
-   var start = startIndex
    var endIndex = getSemicolonBlockEndIndex(inputs, settings, startIndex, inputs.length - 1)
    var openBrackets = 0
-   var lastClosingBracket = -1
    var totalBrackets = 0
    var lastOpenBracket = -1
    var openBracketList = []
    var paddingSpaces = 0
-   var nextLinePadding = 0
    var basePadding = 0
+   var onlyBracketFirstLine = false
+   var paddingChar = ILForceSpace
    endIndex = endIndex[0]
    if (inputs[endIndex].indexOf(";") < 0) {
       endIndex = endIndex + 1
-   }
-   var defaultValueIndex = getNextSymbolIndex(inputs, startIndex, ":=", endIndex);
-   var hasDefaultValue = (defaultValueIndex >= 0)
-   var defaultAssignmentSpace = -1
-   if (hasDefaultValue) {
-      defaultAssignmentSpace = inputs[defaultValueIndex].trim().indexOf(":=")
    }
 
    for (var i = startIndex; i <= endIndex; i++) {
@@ -1118,19 +1113,36 @@ function beautifySignalAssignment(inputs, result, settings, startIndex, indent) 
       if (inputs[i].trim().indexOf(")") === 0) {
          //if closing bracket at the start of a line         
          paddingSpaces = openBracketList[openBracketList.length - 1]
+         if (paddingSpaces < 0) {
+            paddingSpaces = 0
+         }
          if (totalBrackets === 0) {
             paddingSpaces = 0
             basePadding--
          }
+         if (onlyBracketFirstLine) {
+            basePadding = 0
+         }
       }
+
       if (openBrackets < 0) {
          openBracketList = openBracketList.slice(0, openBracketList.length + openBrackets)
       }
-      result.push(new FormattedLine(ILForceSpace.repeat(paddingSpaces + basePadding) + inputs[i], indent));
+
+      result.push(new FormattedLine(paddingChar.repeat(paddingSpaces + basePadding) + inputs[i], indent));
 
       if (i === startIndex) {
+
          if (openBracketList.length > 0) {
             // if there is an open bracket on the first line, align on this one, since it is normally behind the := 
+            let line = inputs[i].replaceAll(/@@.*/g, "").trim()
+            if (line[line.length - 1] === "(") {
+               // if first line ends in an opening bracket (we suppose only one bracket)
+               openBracketList[0] = settings.Indentation.length - 1 //to compensate the +1 on the next line
+               onlyBracketFirstLine = true
+               // starting everything from a simple indent, no alignment correction is needed
+               paddingChar = ILNoAlignmentCorrection
+            }
             basePadding = openBracketList[0] + 1
             if (totalBrackets > 1) { // if more than 1 bracket on the first line
                paddingSpaces = openBracketList[openBracketList.length - 1] + 1
@@ -1146,6 +1158,7 @@ function beautifySignalAssignment(inputs, result, settings, startIndex, indent) 
                basePadding = basePadding + lastOpenBracket[lastOpenBracket.length - 1]
             }
          }
+
       }
       else {
          // not on the first line 
@@ -1166,7 +1179,11 @@ function beautifySignalAssignment(inputs, result, settings, startIndex, indent) 
                      paddingSpaces = 0
                      basePadding--
                   } else {
-                     paddingSpaces = openBracketList[openBracketList.length - 1]
+                     if (totalBrackets === 1) {
+                        paddingSpaces = 0
+                     } else {
+                        paddingSpaces = openBracketList[openBracketList.length - 1]
+                     }
                   }
                }
             }
