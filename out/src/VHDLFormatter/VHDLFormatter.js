@@ -1971,7 +1971,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
             result.push(new FormattedLine(input, indent));
             _f = beautify3(inputs, result, settings, i + 1, indent + 1), i = _f[0], endIndex = _f[1], inputs = _f[2];
          } else { //possible enum, array definition, etc
-            _f = beautifyBrackets(inputs, result, settings, i, endIndex, indent, /\) *;/), i = _f[0], inputs = _f[1];
+            _f = beautifyBrackets(inputs, result, settings, i, endIndex, indent, /;/), i = _f[0], inputs = _f[1];
          }
          //_f = beautifyPortGenericBlock(inputs, result, settings, i, endIndex, indent, "IS"), i = _f[0], endIndex = _f[1];
          errorCheck(inputs, result, i, a)
