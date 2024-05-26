@@ -536,6 +536,7 @@ function beautify(input, settings) {
       ApplyNoNewLineAfter(arr, newLineSettings.noNewLineAfter);
       input = arr.join("\r\n");
    }
+   input = input.replace(/(.*)IS\(/g, "$1 IS (") // make sure there is a space between is and ()
    input = input.replace(/([a-zA-Z0-9\); ])\);(@@comments[0-9]+)?@@end/g, '$1\r\n);$2@@end');
    input = input.replace(/(\S+)<=(\S+)/g, '$1 <= $2')
    input = input.replace(/(\S+):=(\S+)/g, '$1 := $2')
@@ -1075,6 +1076,173 @@ function beautifyMultilineDefault(inputs, result, settings, startIndex, indent) 
 }
 
 exports.beautifyMultilineDefault = beautifyMultilineDefault;
+
+
+function beautifyBrackets(inputs, result, settings, startIndex, endIndex, indent, endPattern) {
+   var openBrackets = 0
+   var totalBrackets = 0
+   var lastOpenBracket = -1
+   var openBracketList = []
+   var paddingSpaces = 0
+   var basePadding = 0
+   var onlyBracketFirstLine = false
+   var paddingChar = ILForceSpace
+   var endReached = false
+
+   for (var i = startIndex; i <= endIndex; i++) {
+      var __i = countOpenBrackets(inputs[i]), openBrackets = __i[0], lastOpenBracket = __i[1], lastClosingBracket = __i[2]
+      if (endReached) {
+         break;
+      }
+      endReached = (inputs[i].search(endPattern) > -1)
+
+      totalBrackets = totalBrackets + openBrackets
+      openBracketList = openBracketList.concat(lastOpenBracket)
+
+      if (inputs[i].trim().indexOf(")") === 0) {
+         //if closing bracket at the start of a line         
+         paddingSpaces = openBracketList[openBracketList.length - 1]
+         if (paddingSpaces < 0) {
+            paddingSpaces = 0
+         }
+         if (totalBrackets === 0) {
+            paddingSpaces = 0
+            basePadding--
+         }
+         if (onlyBracketFirstLine) {
+            basePadding = 0
+         }
+      }
+
+      if (openBrackets < 0) {
+         openBracketList = openBracketList.slice(0, openBracketList.length + openBrackets)
+      }
+
+      result.push(new FormattedLine(paddingChar.repeat(paddingSpaces + basePadding) + inputs[i], indent));
+      if (i === startIndex) {
+
+         if (openBracketList.length > 0) {
+            // if there is an open bracket on the first line, align on this one, since it is normally behind the := 
+            let line = inputs[i].replaceAll(/@@.*/g, "").trim()
+            if (line[line.length - 1] === "(") {
+               // if first line ends in an opening bracket (we suppose only one bracket)
+               openBracketList[0] = settings.Indentation.length - 1 //to compensate the +1 on the next line
+               onlyBracketFirstLine = true
+               // starting everything from a simple indent, no alignment correction is needed
+               paddingChar = ILNoAlignmentCorrection
+            }
+            basePadding = openBracketList[0] + 1
+            if (totalBrackets > 1) { // if more than 1 bracket on the first line
+               paddingSpaces = openBracketList[openBracketList.length - 1] + 1
+            } else {
+               paddingSpaces = 0
+            }
+
+         }
+      }
+      else {
+         // not on the first line 
+         if ((openBracketList.length > 1) && (totalBrackets > 1)) {
+            paddingSpaces = openBracketList[openBracketList.length - 1] + 1
+         } else { // last line with closing bracket
+            paddingSpaces = 0
+            if ((inputs[i].trim().indexOf(")") != -1) && (inputs[i].trim()[0] != ")") && (openBrackets < 0)) {
+               //if closing bracket NOT at the start of a line        
+               if (totalBrackets === 0) {
+                  paddingSpaces = 0
+                  basePadding--
+               } else {
+                  if (totalBrackets === 1) {
+                     paddingSpaces = 0
+                  } else {
+                     paddingSpaces = openBracketList[openBracketList.length - 1]
+                  }
+               }
+            }
+         }
+      }
+      if (!paddingSpaces) {
+         paddingSpaces = 0
+      }
+   }
+   i--
+   return [i, inputs];
+}
+exports.beautifyBrackets = beautifyBrackets;
+
+function beautifyDefaultAssignment(inputs, result, settings, startIndex, endIndex, indent) {
+   var openBrackets = 0
+   var totalBrackets = 0
+   var lastOpenBracket = -1
+   var openBracketList = []
+   var paddingSpaces = 0
+   var paddingChar = ILForceSpace
+   var assignmentSpace = inputs[startIndex].search(/(:|<)=/) + 3 // + 3 to compensate for the length of the assignment and the space behind
+   var basePadding = assignmentSpace
+
+   for (var i = startIndex; i <= endIndex; i++) {
+      var line
+      if (i === startIndex) {
+         line = " ".repeat(assignmentSpace) + inputs[i].slice(assignmentSpace) // remove everything before the assignment to not get confused by non relevant brackets
+      }
+      else {
+         line = inputs[i]
+      }
+      var __i = countOpenBrackets(line), openBrackets = __i[0], lastOpenBracket = __i[1], lastClosingBracket = __i[2]
+      totalBrackets = totalBrackets + openBrackets
+      openBracketList = openBracketList.concat(lastOpenBracket)
+
+      if (openBrackets < 0) {
+         openBracketList = openBracketList.slice(0, openBracketList.length + openBrackets)
+      }
+
+      result.push(new FormattedLine(paddingChar.repeat(paddingSpaces + basePadding) + inputs[i], indent));
+
+      if (i === startIndex) {
+
+         if (openBracketList.length > 0) {
+            // if there is an open bracket on the first line, align on this one, since it is normally behind the := 
+            let line = inputs[i].replaceAll(/@@.*/g, "").trim()
+            basePadding = openBracketList[0] + 1
+            if (totalBrackets > 1) { // if more than 1 bracket on the first line
+               paddingSpaces = openBracketList[openBracketList.length - 1] + 1
+            } else {
+               paddingSpaces = 0
+            }
+
+         }
+      }
+      else {
+         // not on the first line 
+
+         if ((openBracketList.length > 1) && (totalBrackets > 1)) {
+            paddingSpaces = openBracketList[openBracketList.length - 1] + 1
+         } else { // last line with closing bracket
+            paddingSpaces = 0
+            if ((inputs[i].trim().indexOf(")") != -1) && (inputs[i].trim()[0] != ")") && (openBrackets < 0)) {
+               //if closing bracket NOT at the start of a line        
+               if (totalBrackets === 0) {
+                  paddingSpaces = 0
+                  basePadding--
+               } else {
+                  if (totalBrackets === 1) {
+                     paddingSpaces = 0
+                  } else {
+                     paddingSpaces = openBracketList[openBracketList.length - 1]
+                  }
+               }
+            }
+         }
+      }
+      if (!paddingSpaces) {
+         paddingSpaces = 0
+      }
+   }
+   i--
+   return [i, inputs];
+}
+exports.beautifyDefaultAssignment = beautifyDefaultAssignment;
+
 
 function beautifySignalAssignment(inputs, result, settings, startIndex, indent) {
    var endIndex = getSemicolonBlockEndIndex(inputs, settings, startIndex, inputs.length - 1)
@@ -1764,6 +1932,9 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          Mode = modeCache;
          continue;
       }
+
+
+
       if (input.regexStartsWith(/\s*(\bSIGNAL\b|\bCONSTANT\b|\bVARIABLE\b|\bALIAS\b).*:[^;]+$/)) {
          // signal or constant assignment on multiple lines IF not part of an argument list of a function or procedure!!!
          if ((!containsBeforeNextSemicolon(inputs, i, /\bIS\b/)) && (Mode != FormatMode.functionOrProcedureDeclare)) {
@@ -1795,8 +1966,14 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          errorCheck(inputs, result, i, a)
          continue;
       }
-      if (input.regexStartsWith(/TYPE\s+\w+\s+IS\s+\(/)) {
-         _f = beautifyPortGenericBlock(inputs, result, settings, i, endIndex, indent, "IS"), i = _f[0], endIndex = _f[1];
+      if (input.regexStartsWith(/TYPE\s+\w+\s+IS\s/)) {
+         if (input.search(/\bRECORD\b/) > -1) {
+            result.push(new FormattedLine(input, indent));
+            _f = beautify3(inputs, result, settings, i + 1, indent + 1), i = _f[0], endIndex = _f[1], inputs = _f[2];
+         } else { //possible enum, array definition, etc
+            _f = beautifyBrackets(inputs, result, settings, i, endIndex, indent, /\) *;/), i = _f[0], inputs = _f[1];
+         }
+         //_f = beautifyPortGenericBlock(inputs, result, settings, i, endIndex, indent, "IS"), i = _f[0], endIndex = _f[1];
          errorCheck(inputs, result, i, a)
          continue;
       }
