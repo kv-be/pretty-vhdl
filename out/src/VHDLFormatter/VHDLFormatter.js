@@ -581,8 +581,8 @@ function beautify(input, settings) {
    input = input.replace(/\r*\n\s*(?!\b(function|procedure|subtype|type|alias|component|architecture|case|entity)\s)(.*?)\)\s*(\bis\b.*)\r*\n/gi, "$2\r\n\) $3\r\n") //force the closing ") is" on a new line
    //    ^ (? !\b(function| procedure)) (.*\s *\bis\b)
    // line starting with procedure and not containing IS
-   input = input.replace(/\r*\n\s*(?!(\bis\b|;))(\s*PROCEDURE[\s\w]+?\()([^(@@|\r*\n)]+?)\r*\n/gi, "$2\r\n$3\r\n") //force multiline procedures to put arguments on the next line
-   input = input.replace(/\r*\n\s*(?!(\bis\b|;))(\s*FUNCTION[\s\w]+?\()([^(@@|\r*\n)]+?)\r*\n/gi, "$2\r\n$3\r\n") //force multiline functions to put arguments on the next line
+   input = input.replace(/(\r*\n\s*)(?!(\bis\b|;))(\s*PROCEDURE[\s\w]+?\()([^(@@|\r*\n)]+?)\r*\n/gi, "$1$3\r\n$4\r\n") //force multiline procedures to put arguments on the next line
+   input = input.replace(/(\r*\n\s*)(?!(\bis\b|;))(\s*FUNCTION[\s\w]+?\()([^(@@|\r*\n)]+?)\r*\n/gi, "$1$3\r\n$4\r\n") //force multiline functions to put arguments on the next line
    // line not containing keywords and ending in ) is
    input = input.replace(/\r*\n\s*(?!\b(function|procedure|subtype|type|alias|component|architecture|case|entity))(.*?)\)\s*(\bis\b.*)\r*\n/gi, "$2\r\n\) $3\r\n") //force the closing ") is" on a new line
    //    ^ (? !\b(function| procedure)) (.*\s *\bis\b)
@@ -1804,6 +1804,34 @@ function beautifySemicolonBlock(inputs, result, settings, startIndex, parentEndI
    return [endIndex, parentEndIndex + (endIndex - orgEndIndex), inputs];
 }
 exports.beautifySemicolonBlock = beautifySemicolonBlock;
+
+function beautifySemicolonBlock2(inputs, result, settings, startIndex, parentEndIndex, indent) {
+   var _a;
+   var endIndex = startIndex;
+   var functionStart = -1;
+   // the following gets the start line of a semicolon block and the length of it (endIndex)
+   _a = getSemicolonBlockEndIndex(inputs, settings, startIndex, parentEndIndex), endIndex = _a[0], parentEndIndex = _a[1];
+   if (endIndex === -1) {
+      endIndex = startIndex;
+   }
+   if (inputs[endIndex].indexOf(';') === -1) {
+      endIndex++
+   }
+   var st = -1;
+   var orgEndIndex = endIndex;
+   var stuf = ""
+   if (startIndex < endIndex) {
+      // if a multiline detected
+      var __i = beautifyBrackets(inputs, result, settings, startIndex, endIndex, indent, ";"), i = __i[0], inputs = __i[1]
+   } else {
+      result.push(new FormattedLine(inputs[startIndex], indent));
+   }
+
+   return [endIndex, parentEndIndex, inputs];
+}
+exports.beautifySemicolonBlock2 = beautifySemicolonBlock2;
+
+
 /*
 function countOpenBrackets(input) {
    var brackets = 0
@@ -1915,7 +1943,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
    var i;
    var regexOneLineBlockKeyWords = new RegExp(/(PROCEDURE)[^\w](?!.+[^\w]IS([^\w]|$))/); //match PROCEDURE..; but not PROCEDURE .. IS;
    var regexFunctionMultiLineBlockKeyWords = new RegExp(/(FUNCTION|IMPURE FUNCTION)[^\w](?=.+[^\w]IS([^\w]|$))/); //match FUNCTION .. IS; but not FUNCTION
-   var blockMidKeyWords = ["BEGIN"];
+   var blockMidKeyWords = ["BEGIN", "RETURN"];
    var blockStartsKeyWords = [
       "IF",
       "CASE",
@@ -2071,7 +2099,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          continue;
       }
       if (input.regexStartsWith(/TYPE\s+\w+\s+IS\s/)) {
-         if (input.search(/\bRECORD\b/) > -1) {
+         if ((input.search(/\bRECORD\b/) > -1) || input.regexStartsWith(/TYPE.*\bIS +PROTECTED +BODY\b/)) {
             result.push(new FormattedLine(input, indent));
             _f = beautify3(inputs, result, settings, i + 1, indent + 1), i = _f[0], endIndex = _f[1], inputs = _f[2];
          } else { //possible enum, array definition, etc
@@ -2155,7 +2183,8 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          var brackets = countOpenBrackets(input)[0]
          if (brackets > 0) {
             Mode = FormatMode.functionOrProcedure;
-            _l = beautifySemicolonBlock(inputs, result, settings, i, endIndex, indent), i = _l[0], endIndex = _l[1], inputs = _l[2];
+            //_l = beautifySemicolonBlock(inputs, result, settings, i, endIndex, indent), i = _l[0], endIndex = _l[1], inputs = _l[2];
+            _l = beautifySemicolonBlock2(inputs, result, settings, i, endIndex, indent), i = _l[0], endIndex = _l[1], inputs = _l[2];
             Mode = modeCache;
             errorCheck(inputs, result, i, a)
             continue;
@@ -2212,7 +2241,10 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          continue
       }
 
+
       result.push(new FormattedLine(input, indent));
+
+
       if (startIndex != 0
          && (input.regexStartsWith(regexBlockMidKeyWords)
             || (Mode != FormatMode.EndsWithSemicolon && input.regexStartsWith(regexMidKeyElse))
