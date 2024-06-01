@@ -1134,12 +1134,8 @@ function beautifyBrackets(inputs, result, settings, startIndex, endIndex, indent
       if (inputs[i].trim().indexOf(")") === 0) {
          //if closing bracket at the start of a line         
          paddingSpaces = openBracketList[openBracketList.length - 1]
-         if ((paddingSpaces < 0) || (onlyBracketFirstLine)) {
+         if ((paddingSpaces < 0) || (onlyBracketFirstLine) || (totalBrackets === 0)) {
             paddingSpaces = 0
-         }
-         if (totalBrackets === 0) {
-            paddingSpaces = 0
-            basePadding--
          }
       }
 
