@@ -1134,15 +1134,12 @@ function beautifyBrackets(inputs, result, settings, startIndex, endIndex, indent
       if (inputs[i].trim().indexOf(")") === 0) {
          //if closing bracket at the start of a line         
          paddingSpaces = openBracketList[openBracketList.length - 1]
-         if (paddingSpaces < 0) {
+         if ((paddingSpaces < 0) || (onlyBracketFirstLine)) {
             paddingSpaces = 0
          }
          if (totalBrackets === 0) {
             paddingSpaces = 0
             basePadding--
-         }
-         if (onlyBracketFirstLine) {
-            basePadding = 0
          }
       }
 
@@ -1164,16 +1161,24 @@ function beautifyBrackets(inputs, result, settings, startIndex, endIndex, indent
             let line = inputs[i].replaceAll(/@@.*/g, "").trim()
             if (line[line.length - 1] === "(") {
                // if first line ends in an opening bracket (we suppose only one bracket)
-               openBracketList[0] = settings.Indentation.length - 1 //to compensate the +1 on the next line
+               openBracketList[0] = 0
+               openBracketList[1] = settings.Indentation.length - 1
+               if (openBracketList.length > 1) {
+                  openBracketList = openBracketList.slice(0, 2)
+               }
+               totalBrackets = openBracketList.length
+               paddingSpaces = settings.Indentation.length
+               basePadding = 0
                onlyBracketFirstLine = true
                // starting everything from a simple indent, no alignment correction is needed
                paddingChar = ILNoAlignmentCorrection
-            }
-            basePadding = openBracketList[0]
-            if (totalBrackets > 1) { // if more than 1 bracket on the first line
-               paddingSpaces = openBracketList[openBracketList.length - 1] + 1
             } else {
-               paddingSpaces = 1
+               basePadding = openBracketList[0]
+               if (totalBrackets > 1) { // if more than 1 bracket on the first line
+                  paddingSpaces = openBracketList[openBracketList.length - 1] + 1
+               } else {
+                  paddingSpaces = 1
+               }
             }
 
          }
