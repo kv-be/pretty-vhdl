@@ -1217,11 +1217,12 @@ function beautifyBrackets(inputs, result, settings, startIndex, endIndex, indent
                   }
                }
             }
+            if (totalBrackets === 0) {
+               paddingSpaces = 0  // to fix if on bracketlevel 0
+            }
          }
       }
-      if (!paddingSpaces) {
-         paddingSpaces = 1
-      }
+
    }
    i--
    return [i, inputs];
