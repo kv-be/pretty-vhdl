@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.RemoveAsserts = exports.ApplyNoNewLineAfter = exports.beautify3 = exports.beautifySemicolonBlock = exports.containsBeforeNextSemicolon = exports.countOpenBrackets = exports.beautifyEntity = exports.beautifyComponentBlock = exports.beautifyWhenBlock = exports.beautifyCaseBlock = exports.beautifyWithSelect = exports.beautifyMultilineIf = exports.beautifySignalAssignment = exports.beautifyBrackets = exports.beautifyMultilineDefault = exports.AlignSign = exports.AlignSigns = exports.beautifyPortGenericBlock = exports.FormattedLineToString = exports.FormattedLine = exports.beautify = exports.BeautifierSettings = exports.signAlignSettings = exports.SetNewLinesAfterSymbols = exports.NewLineSettings = void 0;
+exports.RemoveAsserts = exports.ApplyNoNewLineAfter = exports.beautify3 = exports.beautifySemicolonBlock = exports.containsBeforeNextSemicolon = exports.countOpenBrackets = exports.beautifyEntity = exports.beautifyComponentBlock = exports.beautifyWhenBlock = exports.beautifyCaseBlock = exports.beautifyWithSelect = exports.beautifyMultilineIf = exports.beautifySignalAssignment2 = exports.beautifyBrackets = exports.beautifyMultilineDefault = exports.AlignSign = exports.AlignSigns = exports.beautifyPortGenericBlock = exports.FormattedLineToString = exports.FormattedLine = exports.beautify = exports.BeautifierSettings = exports.signAlignSettings = exports.SetNewLinesAfterSymbols = exports.NewLineSettings = void 0;
 var isTesting = false;
 var ILEscape = "@@";
 var ILCommentPrefix = ILEscape + "comments";
@@ -1468,18 +1468,11 @@ exports.beautifySignalAssignment = beautifySignalAssignment;
 
 function beautifySignalAssignment2(inputs, result, settings, startIndex, indent) {
    var endIndex = getSemicolonBlockEndIndex(inputs, settings, startIndex, inputs.length - 1)
-   var openBrackets = 0
-   var totalBrackets = 0
-   var lastOpenBracket = -1
-   var openBracketList = []
-   var paddingSpaces = 0
-   var basePadding = 0
-   var onlyBracketFirstLine = false
-   var paddingChar = ILForceSpace
    endIndex = endIndex[0]
    if (inputs[endIndex].indexOf(";") < 0) {
       endIndex = endIndex + 1
    }
+   var startResult = result.length
    var _i = beautifyBrackets(inputs, result, settings, startIndex, endIndex, indent, /(;|:=)/, false), i = _i[0], inputs = _i[1]
    var assignmentSpace = result[result.length - 1].Line.search(/(:|<)=/) + 3 // + 3 to compensate for the length of the assignment and the space behind
    var line
@@ -1488,8 +1481,17 @@ function beautifySignalAssignment2(inputs, result, settings, startIndex, indent)
    } else {
       line = result[result.length - 1].Line
    }
-   inputs[i] = line
+
    _i = beautifyBrackets(inputs, result, settings, i, endIndex, indent, /;/, true), i = _i[0], inputs = _i[1]
+   for (var k = startResult; k < result.length; k++) {
+      result[k].Line = result[k].Line.replaceAll(ILNoAlignmentCorrection, "`")
+   }
+   //align on assignment signs to get it clean. Is not done later due to the ILNoAlignmentCorrection
+   AlignSign_(result, startResult, result.length - 1, "=>", "global", "\r\r", settings.Indentation);
+   AlignSign_(result, startResult, result.length - 1, "@@comments", "global", "\\bWHEN\\b", settings.Indentation);
+   for (var k = startResult; k < result.length; k++) {
+      result[k].Line = result[k].Line.replaceAll("`", ILNoAlignmentCorrection)
+   }
    return [i, inputs];
 }
 exports.beautifySignalAssignment2 = beautifySignalAssignment2;
