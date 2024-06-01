@@ -808,6 +808,8 @@ function beautifyPortGenericBlock(inputs, result, settings, startIndex, parentEn
    if (firstLineHasParenthese && inputs[startIndex].indexOf("MAP") > 0) {
       inputs[startIndex] = inputs[startIndex].replace(/([^\w])(MAP)\s+\(/g, '$1$2(');
    }
+
+
    result.push(new FormattedLine(inputs[startIndex], indent));
    if (secondLineHasParenthese) {
       var secondLineIndent = indent;
@@ -1990,6 +1992,14 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          result.push(new FormattedLine(input, indent));
          return [i, endIndex, inputs];
       }
+      if (input.regexStartsWith(/(?!\bEND\b).*\bPROCESS\b/)) {
+         __i = beautifyBrackets(inputs, result, settings, i, endIndex, indent, /\bBEGIN\b/), i = __i[0], inputs = __i[1]
+         result[result.length - 1].Line = result[result.length - 1].Line.replaceAll(ILForceSpace, " ").trim()
+         __i = beautify3(inputs, result, settings, i + 1, indent + 1, endIndex), i = __i[0], endIndex = __i[1], inputs = __i[2]
+         continue;
+      }
+
+
       if (input.regexStartsWith(/COMPONENT\s/)) {
          var modeCache = Mode;
          Mode = FormatMode.EndsWithSemicolon;
