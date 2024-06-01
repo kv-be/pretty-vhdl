@@ -529,6 +529,7 @@ function beautify(input, settings) {
    input = arr.join("\r\n");
    input = input.replace(/\b(PORT|GENERIC)\b\s+MAP/g, '$1 MAP');
    input = input.replace(/\b(PORT|PROCESS|GENERIC)\b[\s\n]*\(/g, '$1 (');
+   input = input.replace(new RegExp(`\\b(REPORT)\\b[\\s\\n]*${ILQuote}`, "gi"), `$1 ${ILQuote}`); // make sure there is a space between report and the quote
    var newLineSettings = settings.NewLineSettings;
    if (newLineSettings != null) {
       input = SetNewLinesAfterSymbols(input, newLineSettings);
@@ -2196,6 +2197,17 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          errorCheck(inputs, result, i, a)
          Mode = modeCache;
          continue;
+      }
+
+      if (input.regexStartsWith(/\bREPORT\b/) && (input.indexOf(";") === -1)) {
+         var start = result.length
+         inputs[i] = inputs[i].replace("REPORT ", "REPORT(") // add a bracket to make the magic happen
+         __i = beautifyBrackets(inputs, result, settings, i, endIndex, indent, /(SEVERITY|;)/), i = __i[0], inputs = __i[1]
+         result[start].Line = result[start].Line.replace("REPORT(", "REPORT ") // remove the bracket
+         if (result[result.length - 1].Line.search(/\bSEVERITY\b/) > -1) {
+            result[result.length - 1].Line = result[result.length - 1].Line.replaceAll(ILForceSpace, " ").trim() // correct the severity 
+         }
+         continue
       }
 
       result.push(new FormattedLine(input, indent));
