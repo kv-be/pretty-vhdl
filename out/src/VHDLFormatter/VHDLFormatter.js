@@ -1078,23 +1078,32 @@ function beautifyMultilineDefault(inputs, result, settings, startIndex, indent) 
 exports.beautifyMultilineDefault = beautifyMultilineDefault;
 
 
-function beautifyBrackets(inputs, result, settings, startIndex, endIndex, indent, endPattern) {
+function beautifyBrackets(inputs, result, settings, startIndex, endIndex, indent, endPattern, skipFirstLine = false) {
    var openBrackets = 0
    var totalBrackets = 0
    var lastOpenBracket = -1
+   var lastBracketPlace = 0
    var openBracketList = []
    var paddingSpaces = 0
    var basePadding = 0
    var onlyBracketFirstLine = false
    var paddingChar = ILForceSpace
    var endReached = false
-
+   var line
    for (var i = startIndex; i <= endIndex; i++) {
-      var __i = countOpenBrackets(inputs[i]), openBrackets = __i[0], lastOpenBracket = __i[1], lastClosingBracket = __i[2]
+      var patPos = inputs[i].match(endPattern)
+      if (patPos) {
+         // hide everything behind the endPattern, to avoid bad brackets counting in case of e.g. ) := ( 
+         line = inputs[i].slice(0, patPos.index) + patPos[0] + " ".repeat(inputs[i].slice(patPos.index).length)
+      } else {
+         line = inputs[i]
+      }
+      var __i = countOpenBrackets(line), openBrackets = __i[0], lastOpenBracket = __i[1], lastClosingBracket = __i[2]
       if (endReached) {
          break;
       }
-      endReached = (inputs[i].search(endPattern) > -1)
+
+      endReached = (line.search(endPattern) > -1)
 
       totalBrackets = totalBrackets + openBrackets
       openBracketList = openBracketList.concat(lastOpenBracket)
@@ -1115,10 +1124,16 @@ function beautifyBrackets(inputs, result, settings, startIndex, endIndex, indent
       }
 
       if (openBrackets < 0) {
+         lastBracketPlace = openBracketList[openBracketList.length - 1]
          openBracketList = openBracketList.slice(0, openBracketList.length + openBrackets)
       }
-
-      result.push(new FormattedLine(paddingChar.repeat(paddingSpaces + basePadding) + inputs[i], indent));
+      paddingSpaces = paddingSpaces < 0 ? 0 : paddingSpaces
+      basePadding = basePadding < 0 ? 0 : basePadding
+      if (!skipFirstLine) {
+         result.push(new FormattedLine(paddingChar.repeat(paddingSpaces + basePadding) + inputs[i], indent));
+      } else {
+         skipFirstLine = false
+      }
       if (i === startIndex) {
 
          if (openBracketList.length > 0) {
@@ -1143,7 +1158,14 @@ function beautifyBrackets(inputs, result, settings, startIndex, endIndex, indent
       else {
          // not on the first line 
          if ((openBracketList.length > 1) && (totalBrackets > 1)) {
-            paddingSpaces = openBracketList[openBracketList.length - 1] + 1
+            if (openBrackets > 0) {
+               // opening bracket
+               paddingSpaces = openBracketList[openBracketList.length - 1] + 1
+            }
+            if (openBrackets < 0) {
+               // closing bracket
+               paddingSpaces = openBracketList[openBracketList.length - 1] + 1
+            }
          } else { // last line with closing bracket
             paddingSpaces = 0
             if ((inputs[i].trim().indexOf(")") != -1) && (inputs[i].trim()[0] != ")") && (openBrackets < 0)) {
@@ -1171,23 +1193,25 @@ function beautifyBrackets(inputs, result, settings, startIndex, endIndex, indent
 exports.beautifyBrackets = beautifyBrackets;
 
 function beautifyDefaultAssignment(inputs, result, settings, startIndex, endIndex, indent) {
+   // Please note that this function assumes that the line containing the default value assignment has already been pushed to result
    var openBrackets = 0
    var totalBrackets = 0
    var lastOpenBracket = -1
    var openBracketList = []
    var paddingSpaces = 0
    var paddingChar = ILForceSpace
-   var assignmentSpace = inputs[startIndex].search(/(:|<)=/) + 3 // + 3 to compensate for the length of the assignment and the space behind
+   var assignmentSpace = result[result.length - 1].Line.search(/(:|<)=/) + 3 // + 3 to compensate for the length of the assignment and the space behind
    var basePadding = assignmentSpace
+   if (assignmentSpace > 2) { // means that the assignment symbol was found
+      var line = " ".repeat(assignmentSpace - 3) + result[result.length - 1].Line.slice(assignmentSpace - 3) // get rid of all things before assingment symbol
+   } else {
+      line = result[result.length - 1].Line
+   }
+   var __i = countOpenBrackets(line), openBrackets = __i[0], lastOpenBracket = __i[1], lastClosingBracket = __i[2]
+   totalBrackets = totalBrackets + openBrackets
 
-   for (var i = startIndex; i <= endIndex; i++) {
-      var line
-      if (i === startIndex) {
-         line = " ".repeat(assignmentSpace) + inputs[i].slice(assignmentSpace) // remove everything before the assignment to not get confused by non relevant brackets
-      }
-      else {
-         line = inputs[i]
-      }
+   for (var i = startIndex + 1; i <= endIndex; i++) {
+      line = inputs[i]
       var __i = countOpenBrackets(line), openBrackets = __i[0], lastOpenBracket = __i[1], lastClosingBracket = __i[2]
       totalBrackets = totalBrackets + openBrackets
       openBracketList = openBracketList.concat(lastOpenBracket)
@@ -1215,7 +1239,7 @@ function beautifyDefaultAssignment(inputs, result, settings, startIndex, endInde
       else {
          // not on the first line 
 
-         if ((openBracketList.length > 1) && (totalBrackets > 1)) {
+         if ((openBracketList.length > 0) && (totalBrackets > 0)) {
             paddingSpaces = openBracketList[openBracketList.length - 1] + 1
          } else { // last line with closing bracket
             paddingSpaces = 0
@@ -1223,7 +1247,6 @@ function beautifyDefaultAssignment(inputs, result, settings, startIndex, endInde
                //if closing bracket NOT at the start of a line        
                if (totalBrackets === 0) {
                   paddingSpaces = 0
-                  basePadding--
                } else {
                   if (totalBrackets === 1) {
                      paddingSpaces = 0
@@ -1403,6 +1426,33 @@ function beautifySignalAssignment(inputs, result, settings, startIndex, indent) 
 }
 exports.beautifySignalAssignment = beautifySignalAssignment;
 
+function beautifySignalAssignment2(inputs, result, settings, startIndex, indent) {
+   var endIndex = getSemicolonBlockEndIndex(inputs, settings, startIndex, inputs.length - 1)
+   var openBrackets = 0
+   var totalBrackets = 0
+   var lastOpenBracket = -1
+   var openBracketList = []
+   var paddingSpaces = 0
+   var basePadding = 0
+   var onlyBracketFirstLine = false
+   var paddingChar = ILForceSpace
+   endIndex = endIndex[0]
+   if (inputs[endIndex].indexOf(";") < 0) {
+      endIndex = endIndex + 1
+   }
+   var _i = beautifyBrackets(inputs, result, settings, startIndex, endIndex, indent, /(;|:=)/, false), i = _i[0], inputs = _i[1]
+   var assignmentSpace = result[result.length - 1].Line.search(/(:|<)=/) + 3 // + 3 to compensate for the length of the assignment and the space behind
+   var line
+   if (assignmentSpace > 2) { // means that the assignment symbol was found
+      line = ILForceSpace.repeat(assignmentSpace - 2) + "_(" + result[result.length - 1].Line.slice(assignmentSpace) //replace the assigment by an opening bracket to reuse the bracket function
+   } else {
+      line = result[result.length - 1].Line
+   }
+   inputs[i] = line
+   _i = beautifyBrackets(inputs, result, settings, i, endIndex, indent, /;/, true), i = _i[0], inputs = _i[1]
+   return [i, inputs];
+}
+exports.beautifySignalAssignment2 = beautifySignalAssignment2;
 /*
 
 // this code supports multiple function calls in signal assignments, but removes the nice allignment of e.g. arrays
@@ -1941,7 +1991,8 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
             // multiline signal and constants are not supported as arguments of a procedure or function
             var modeCache = Mode;
             //Mode = FormatMode.MultilineAssignment;
-            var __i = beautifySignalAssignment(inputs, result, settings, i, indent), i = __i[0], inputs = __i[1]
+            //var __i = beautifySignalAssignment(inputs, result, settings, i, indent), i = __i[0], inputs = __i[1]
+            var __i = beautifySignalAssignment2(inputs, result, settings, i, indent), i = __i[0], inputs = __i[1]
             errorCheck(inputs, result, i, a)
             Mode = modeCache;
             continue;
