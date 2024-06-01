@@ -1106,7 +1106,30 @@ function beautifyBrackets(inputs, result, settings, startIndex, endIndex, indent
       endReached = (line.search(endPattern) > -1)
 
       totalBrackets = totalBrackets + openBrackets
-      openBracketList = openBracketList.concat(lastOpenBracket)
+      var pad = 0
+      for (var j = 0; j < lastOpenBracket.length; j++) {
+         //here we want a openBracketList to be a list of which the first element is the absolute place on hte line
+         //all the next ones are relative to this first level
+         if (openBracketList.length === 0) {
+            //if we did not get any bracket yet
+            openBracketList.push(lastOpenBracket[j])
+         } else {
+            //there is already at least one bracket seen
+            if (j === 0) {
+               //one bracket seen, but on an earlier line
+               if (openBracketList.length === 1) {
+                  // if only the opening bracket was seen
+                  pad = 1
+               } else {
+                  // another level already existed
+                  pad = openBracketList[openBracketList.length - 1] + 1
+               }
+            }
+            openBracketList.push(pad + lastOpenBracket[j])
+            pad = pad + lastOpenBracket[j]
+         }
+      }
+      //openBracketList = openBracketList.concat(lastOpenBracket)
 
       if (inputs[i].trim().indexOf(")") === 0) {
          //if closing bracket at the start of a line         
@@ -1146,11 +1169,11 @@ function beautifyBrackets(inputs, result, settings, startIndex, endIndex, indent
                // starting everything from a simple indent, no alignment correction is needed
                paddingChar = ILNoAlignmentCorrection
             }
-            basePadding = openBracketList[0] + 1
+            basePadding = openBracketList[0]
             if (totalBrackets > 1) { // if more than 1 bracket on the first line
                paddingSpaces = openBracketList[openBracketList.length - 1] + 1
             } else {
-               paddingSpaces = 0
+               paddingSpaces = 1
             }
 
          }
@@ -1158,33 +1181,26 @@ function beautifyBrackets(inputs, result, settings, startIndex, endIndex, indent
       else {
          // not on the first line 
          if ((openBracketList.length > 1) && (totalBrackets > 1)) {
-            if (openBrackets > 0) {
-               // opening bracket
-               paddingSpaces = openBracketList[openBracketList.length - 1] + 1
-            }
-            if (openBrackets < 0) {
-               // closing bracket
-               paddingSpaces = openBracketList[openBracketList.length - 1] + 1
-            }
+            paddingSpaces = openBracketList[openBracketList.length - 1] + 1
          } else { // last line with closing bracket
-            paddingSpaces = 0
+            paddingSpaces = 1
             if ((inputs[i].trim().indexOf(")") != -1) && (inputs[i].trim()[0] != ")") && (openBrackets < 0)) {
                //if closing bracket NOT at the start of a line        
                if (totalBrackets === 0) {
-                  paddingSpaces = 0
+                  paddingSpaces = 1
                   basePadding--
                } else {
                   if (totalBrackets === 1) {
-                     paddingSpaces = 0
+                     paddingSpaces = 1
                   } else {
-                     paddingSpaces = openBracketList[openBracketList.length - 1]
+                     paddingSpaces = openBracketList[openBracketList.length - 1] + 1
                   }
                }
             }
          }
       }
       if (!paddingSpaces) {
-         paddingSpaces = 0
+         paddingSpaces = 1
       }
    }
    i--
@@ -1798,11 +1814,7 @@ function countOpenBrackets(input, totatlBrackets = 0) {
    for (var j = 0; j < input.length; j++) {
       if (input[j] === "(") {
          brackets = brackets + 1
-         if (lastOpenBracket.length > 0) {
-            lastOpenBracket.push(j - lastOpenBracket[0] - 1) // add a bracket level
-         } else {
-            lastOpenBracket.push(j)
-         }
+         lastOpenBracket.push(j)
       }
 
       if (input[j] === ")") {
@@ -1817,7 +1829,14 @@ function countOpenBrackets(input, totatlBrackets = 0) {
          }
       }
    }
-   return [brackets, lastOpenBracket, lastClosingBracket[lastClosingBracket.length - 1]]
+   var bracketList = []
+   if (lastOpenBracket.length > 0) {
+      bracketList.push(lastOpenBracket[0])
+      for (var j = 1; j < lastOpenBracket.length; j++) {
+         bracketList.push(lastOpenBracket[j] - lastOpenBracket[j - 1])
+      }
+   }
+   return [brackets, bracketList, lastClosingBracket[lastClosingBracket.length - 1]]
 }
 exports.countOpenBrackets = countOpenBrackets;
 
