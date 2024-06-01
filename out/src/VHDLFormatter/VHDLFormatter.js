@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.RemoveAsserts = exports.ApplyNoNewLineAfter = exports.beautify3 = exports.beautifySemicolonBlock = exports.containsBeforeNextSemicolon = exports.countOpenBrackets = exports.beautifyEntity = exports.beautifyComponentBlock = exports.beautifyWhenBlock = exports.beautifyCaseBlock = exports.beautifyWithSelect = exports.beautifyMultilineIf = exports.beautifySignalAssignment = exports.beautifyMultilineDefault = exports.AlignSign = exports.AlignSigns = exports.beautifyPortGenericBlock = exports.FormattedLineToString = exports.FormattedLine = exports.beautify = exports.BeautifierSettings = exports.signAlignSettings = exports.SetNewLinesAfterSymbols = exports.NewLineSettings = void 0;
+exports.RemoveAsserts = exports.ApplyNoNewLineAfter = exports.beautify3 = exports.beautifySemicolonBlock = exports.containsBeforeNextSemicolon = exports.countOpenBrackets = exports.beautifyEntity = exports.beautifyComponentBlock = exports.beautifyWhenBlock = exports.beautifyCaseBlock = exports.beautifyWithSelect = exports.beautifyMultilineIf = exports.beautifySignalAssignment = exports.beautifyBrackets = exports.beautifyMultilineDefault = exports.AlignSign = exports.AlignSigns = exports.beautifyPortGenericBlock = exports.FormattedLineToString = exports.FormattedLine = exports.beautify = exports.BeautifierSettings = exports.signAlignSettings = exports.SetNewLinesAfterSymbols = exports.NewLineSettings = void 0;
 var isTesting = false;
 var ILEscape = "@@";
 var ILCommentPrefix = ILEscape + "comments";
@@ -1039,10 +1039,25 @@ function beautifyMultilineIf(inputs, result, settings, startIndex, indent) {
 }
 exports.beautifyMultilineIf = beautifyMultilineIf;
 
+function beautifyMultilineIf2(inputs, result, settings, startIndex, indent) {
+   var endIndex = inputs.length
+   var elsif = (inputs[startIndex].indexOf("ELSIF") > -1)
+   if (elsif) {
+      indent--
+   }
+   var _i = beautifyBrackets(inputs, result, settings, startIndex, endIndex, indent, /(THEN)/, false), i = _i[0], inputs = _i[1]
+
+   var _c = beautify3(inputs, result, settings, i + 1, indent + 1, endIndex), i = _c[0], endIndex = _c[1], inputs = _c[2];
+   return [i, endIndex, inputs]
+}
+exports.beautifyMultilineIf2 = beautifyMultilineIf2;
+
+
 function beautifyMultilineDefault(inputs, result, settings, startIndex, indent) {
    var start = startIndex
    var endIndex = getSemicolonBlockEndIndex(inputs, settings, startIndex, inputs.length - 1)
    endIndex = endIndex[0]
+
    if (inputs[endIndex].indexOf(";") < 0) {
       endIndex = endIndex + 1
    }
@@ -1097,6 +1112,10 @@ function beautifyBrackets(inputs, result, settings, startIndex, endIndex, indent
          line = inputs[i].slice(0, patPos.index) + patPos[0] + " ".repeat(inputs[i].slice(patPos.index).length)
       } else {
          line = inputs[i]
+         if (((inputs[i].indexOf("IF") === 0) || (inputs[i].indexOf("ELSIF") === 0)) && (inputs[i].indexOf("(") < 0)) {
+            // a if or elsif without brackets, add a bracket to get the alignment OK
+            line = inputs[i].replace(/(IF|ELSIF) /, "$1\(")
+         }
       }
       var __i = countOpenBrackets(line), openBrackets = __i[0], lastOpenBracket = __i[1], lastClosingBracket = __i[2]
       if (endReached) {
@@ -2160,7 +2179,9 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          //a if or elseif wihtout a then on the same line
          var modeCache = Mode;
          Mode = FormatMode.MultilineAssignment;
-         var __i = beautifyMultilineIf(inputs, result, settings, i, indent), i = __i[0], endIndex = __i[1], inputs = __i[2];
+         //var __i = beautifyMultilineIf(inputs, result, settings, i, indent), i = __i[0], endIndex = __i[1], inputs = __i[2];
+         var __i = beautifyMultilineIf2(inputs, result, settings, i, indent), i = __i[0], endIndex = __i[1], inputs = __i[2];
+         indent = result[result.length - 1].Indent
          errorCheck(inputs, result, i, a)
          Mode = modeCache;
          continue;
