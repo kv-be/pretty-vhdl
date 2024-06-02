@@ -575,16 +575,23 @@ function beautify(input, settings) {
    input = input.replace(/WHEN *(\S+) *=> *((?!.*@@)[^;]+$)/gi, "WHEN $1 =>\r\n$2") // when followed by not a comment
 
    // line starting with procedure and not containing IS
-   input = input.replace(/(?!(\bis\b|;))(\s*PROCEDURE[\s\w]+?\()([^(@@|\r*\n)]+?)\r*\n/gi, "$2\r\n$3\r\n") //force multiline procedures to put arguments on the next line
-   input = input.replace(/(?!(\bis\b|;))(\s*FUNCTION[\s\w]+?\()([^(@@|\r*\n)]+?)\r*\n/gi, "$2\r\n$3\r\n") //force multiline functions to put arguments on the next line
+   // ***** be more relaxed on function and procedure definitions with new bracket system
+   //input = input.replace(/(?!(\bis\b|;))(\s*PROCEDURE[\s\w]+?\()([^(@@|\r*\n)]+?)\r*\n/gi, "$2\r\n$3\r\n") //force multiline procedures to put arguments on the next line
+   //input = input.replace(/(?!(\bis\b|;))(\s*FUNCTION[\s\w]+?\()([^(@@|\r*\n)]+?)\r*\n/gi, "$2\r\n$3\r\n") //force multiline functions to put arguments on the next line
+
    // line not containing keywords and ending in ) is
-   input = input.replace(/\r*\n\s*(?!\b(function|procedure|subtype|type|alias|component|architecture|case|entity)\s)(.*?)\)\s*(\bis\b.*)\r*\n/gi, "$2\r\n\) $3\r\n") //force the closing ") is" on a new line
+   // **** with new bracket system no longer needed to force on a new line
+   //input = input.replace(/(\r*\n\s*)(?!\b(function|procedure|subtype|type|alias|component|architecture|case|entity)\s)(.*?)\)\s*(\bis\b.*)\r*\n/gi, "$1$3\r\n\) $4\r\n") //force the closing ") is" on a new line
+
    //    ^ (? !\b(function| procedure)) (.*\s *\bis\b)
    // line starting with procedure and not containing IS
-   input = input.replace(/(\r*\n\s*)(?!(\bis\b|;))(\s*PROCEDURE[\s\w]+?\()([^(@@|\r*\n)]+?)\r*\n/gi, "$1$3\r\n$4\r\n") //force multiline procedures to put arguments on the next line
-   input = input.replace(/(\r*\n\s*)(?!(\bis\b|;))(\s*FUNCTION[\s\w]+?\()([^(@@|\r*\n)]+?)\r*\n/gi, "$1$3\r\n$4\r\n") //force multiline functions to put arguments on the next line
+
+   //**** new multiline support idea : be not too strict  
+   //input = input.replace(/(\r*\n\s*)(?!(\bis\b|;))(\s*PROCEDURE[\s\w]+?\()([^(@@|\r*\n)]+?)\r*\n/gi, "$1$3\r\n$4\r\n") //force multiline procedures to put arguments on the next line
+   //input = input.replace(/(\r*\n\s*)(?!(\bis\b|;))(\s*FUNCTION[\s\w]+?\()([^(@@|\r*\n)]+?)\r*\n/gi, "$1$3\r\n$4\r\n") //force multiline functions to put arguments on the next line
    // line not containing keywords and ending in ) is
-   input = input.replace(/\r*\n\s*(?!\b(function|procedure|subtype|type|alias|component|architecture|case|entity))(.*?)\)\s*(\bis\b.*)\r*\n/gi, "$2\r\n\) $3\r\n") //force the closing ") is" on a new line
+   // ** double of a few lines above
+   //input = input.replace(/(\r*\n\s*)(?!\b(function|procedure|subtype|type|alias|component|architecture|case|entity))(.*?)\)\s*(\bis\b.*)\r*\n/gi, "$1$3\r\n\) $4\r\n") //force the closing ") is" on a new line
    //    ^ (? !\b(function| procedure)) (.*\s *\bis\b)
 
    input = input.replace(/(.*;)(.*;)/gi, "$1\r\n$2"); // one executable statement per line
@@ -844,6 +851,35 @@ function beautifyPortGenericBlock(inputs, result, settings, startIndex, parentEn
 
 
 exports.beautifyPortGenericBlock = beautifyPortGenericBlock;
+
+function beautifyFunctionDeclaration(inputs, result, settings, startIndex, parentEndIndex, indent, endWord) {
+   var startResult = result.length
+   var re = new RegExp(`\\b${endWord}\\b`)
+   var __i = beautifyBrackets(inputs, result, settings, startIndex, parentEndIndex, indent, re), i = __i[0], inputs = __i[1]
+   // now correct incorrect alignment of the return statement but only if it starts with return or ) return
+   re = new RegExp(`[\\)]* *${endWord}`)
+   if (result[result.length - 1].Line.replaceAll(ILNoAlignmentCorrection, "").search(re) === 0) {
+      result[result.length - 1].Line = result[result.length - 1].Line.replaceAll(ILNoAlignmentCorrection, "")
+   }
+   for (var k = startResult; k < result.length; k++) {
+      result[k].Line = result[k].Line.replaceAll(ILNoAlignmentCorrection, "`")
+   }
+   //align on assignment signs to get it clean. Is not done later due to the ILNoAlignmentCorrection
+   AlignSign_(result, startResult, result.length - 1, ":", "global", "\r\r", settings.Indentation);
+   AlignSign_(result, startResult, result.length - 1, ":=", "global", "\r\r", settings.Indentation);
+   AlignSign_(result, startResult, result.length - 1, "@@comments", "global", "\\bWHEN\\b", settings.Indentation);
+   for (var k = startResult; k < result.length; k++) {
+      result[k].Line = result[k].Line.replaceAll("`", ILNoAlignmentCorrection)
+   }
+   var _i = beautify3(inputs, result, settings, i + 1, indent + 1, parentEndIndex), i = _i[0], endIndex = _i[1], inputs = _i[2];
+
+   return [i, parentEndIndex];
+}
+
+
+exports.beautifyFunctionDeclaration = beautifyFunctionDeclaration;
+
+
 function AlignSigns(result, startIndex, endIndex, mode, indentation) {
    // except IS added to prevent var declarations in functions or procedures align to arguments defs
    // except ) at the beginning of the line is to break allignment for signals with multiline defaults
@@ -909,10 +945,12 @@ function AlignSign_(result, startIndex, endIndex, symbol, mode, exclude, indenta
             var endOfMultline = i
             // here we detect when the ; is seen. In case of a multiline declaration, we need to fast forward 
             // to the end of the declaration
-            do {
-               endOfMultline++
-               text = text + " " + result[endOfMultline].Line.replaceAll(/\(OTHERS => /g, "OOOOOOOOOOO");
-            } while (((result[endOfMultline].Line.indexOf(";") === -1) && (!skipLine)) && (endOfMultline < result.length)) //search for the next ;
+            if (endOfMultline < result.length - 1) {
+               do {
+                  endOfMultline++
+                  text = text + " " + result[endOfMultline].Line.replaceAll(/\(OTHERS => /g, "OOOOOOOOOOO");
+               } while (((result[endOfMultline].Line.indexOf(";") === -1) && (!skipLine)) && (endOfMultline < result.length - 1)) //search for the next ;
+            }
             if (text.indexOf(ILForceSpace) >= 0) {// ILForceSpace found => indeed multiline assignment...
                // fast forward over the rest of the multiline declaration 
                do {
@@ -939,7 +977,8 @@ function AlignSign_(result, startIndex, endIndex, symbol, mode, exclude, indenta
          maxIndent = -1
          forcedBlockEnd = false
       }
-      if ((result[i].Line.indexOf("THEN") > -1) || (result[i].Line.indexOf(";") > -1)) {
+      //          end of IF                                end of assignment                     end of function/procedure
+      if ((result[i].Line.indexOf("THEN") > -1) || (result[i].Line.indexOf(";") > -1) || (result[i].Line.search(/\bIS\b/) > -1)) {
          skipLine = false
       }
 
@@ -1943,7 +1982,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
    var i;
    var regexOneLineBlockKeyWords = new RegExp(/(PROCEDURE)[^\w](?!.+[^\w]IS([^\w]|$))/); //match PROCEDURE..; but not PROCEDURE .. IS;
    var regexFunctionMultiLineBlockKeyWords = new RegExp(/(FUNCTION|IMPURE FUNCTION)[^\w](?=.+[^\w]IS([^\w]|$))/); //match FUNCTION .. IS; but not FUNCTION
-   var blockMidKeyWords = ["BEGIN", "RETURN"];
+   var blockMidKeyWords = ["BEGIN"];
    var blockStartsKeyWords = [
       "IF",
       "CASE",
@@ -2125,16 +2164,17 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          var modeCache = Mode;
          Mode = FormatMode.functionOrProcedureDeclare
          // mode change needed to deal with last argument of a function declaration, whihc is indistinguisable from a multiline signal declaration
-         _h = beautifyPortGenericBlock(inputs, result, settings, i, endIndex, indent, "PROCEDURE"), i = _h[0], endIndex = _h[1];
+         //_h = beautifyPortGenericBlock(inputs, result, settings, i, endIndex, indent, "PROCEDURE"), i = _h[0], endIndex = _h[1];
+         _h = beautifyFunctionDeclaration(inputs, result, settings, i, endIndex, indent, "IS"), i = _h[0], endIndex = _h[1];
          Mode = modeCache
-         if (inputs[i].regexStartsWith(/.*\)[\s]*IS/)) {
+         /*if (inputs[i].regexStartsWith(/.*\)[\s]*IS/)) {
             _o = beautify3(inputs, result, settings, i + 1, indent + 1), i = _o[0], endIndex = _o[1], inputs = _o[2];
-         }
+         }*/
          errorCheck(inputs, result, i, a)
          continue;
       }
 
-      if (input.regexStartsWith(/FUNCTION[^\w]/)
+      /*if (input.regexStartsWith(/FUNCTION[^\w]/)
          && input.regexIndexOf(/[^\w]RETURN[^\w]/) < 0) {
          var modeCache = Mode;
          Mode = FormatMode.functionOrProcedureDeclare
@@ -2149,25 +2189,15 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          }
          errorCheck(inputs, result, i, a)
          continue;
-      }
-      if (input.regexStartsWith(/IMPURE FUNCTION[^\w]/)
+      }*/
+      if (input.regexStartsWith(/[IMPURE]* *FUNCTION[^\w]/)
          && input.regexIndexOf(/[^\w]RETURN[^\w]/) < 0) {
          var modeCache = Mode;
          Mode = FormatMode.functionOrProcedureDeclare
          // mode change needed to deal with last argument of a function declaration, whihc is indistinguisable from a multiline signal declaration
-         _k = beautifyPortGenericBlock(inputs, result, settings, i, endIndex, indent, "IMPURE FUNCTION"), i = _k[0], endIndex = _k[1];
+         //_k = beautifyPortGenericBlock(inputs, result, settings, i, endIndex, indent, "IMPURE FUNCTION"), i = _k[0], endIndex = _k[1];
+         _k = beautifyFunctionDeclaration(inputs, result, settings, i, endIndex, indent, "RETURN"), i = _k[0], endIndex = _k[1];
          Mode = modeCache
-         if (!inputs[i].regexStartsWith(regexBlockEndsKeyWords)) {
-            if (inputs[i].regexStartsWith(regexBlockIndentedEndsKeyWords)) {
-               result[i].Indent++;
-            }
-            else {
-               _q = beautify3(inputs, result, settings, i + 1, indent + 1), i = _q[0], endIndex = _q[1], inputs = _q[2];
-            }
-         }
-         else {
-            result[i].Indent++;
-         }
          errorCheck(inputs, result, i, a)
          continue;
       }
@@ -2247,6 +2277,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
 
       if (startIndex != 0
          && (input.regexStartsWith(regexBlockMidKeyWords)
+            || (Mode != FormatMode.functionOrProcedureDeclare && input.regexStartsWith(regexMidKeyElse))
             || (Mode != FormatMode.EndsWithSemicolon && input.regexStartsWith(regexMidKeyElse))
             || (Mode == FormatMode.CaseWhen && input.regexStartsWith(regexMidKeyWhen)))) {
          result[i].Indent--;
