@@ -1520,7 +1520,7 @@ function beautifySignalAssignment2(inputs, result, settings, startIndex, indent)
    } else {
       line = result[result.length - 1].Line
    }
-
+   inputs[i] = line
    _i = beautifyBrackets(inputs, result, settings, i, endIndex, indent, /;/, true), i = _i[0], inputs = _i[1]
    for (var k = startResult; k < result.length; k++) {
       result[k].Line = result[k].Line.replaceAll(ILNoAlignmentCorrection, "`")
@@ -2107,16 +2107,16 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
 
       if (input.regexStartsWith(/\s*(\bSIGNAL\b|\bCONSTANT\b|\bVARIABLE\b|\bALIAS\b).*:[^;]+$/)) {
          // signal or constant assignment on multiple lines IF not part of an argument list of a function or procedure!!!
-         if ((!containsBeforeNextSemicolon(inputs, i, /\bIS\b/)) && (Mode != FormatMode.functionOrProcedureDeclare)) {
-            // multiline signal and constants are not supported as arguments of a procedure or function
-            var modeCache = Mode;
-            //Mode = FormatMode.MultilineAssignment;
-            //var __i = beautifySignalAssignment(inputs, result, settings, i, indent), i = __i[0], inputs = __i[1]
-            var __i = beautifySignalAssignment2(inputs, result, settings, i, indent), i = __i[0], inputs = __i[1]
-            errorCheck(inputs, result, i, a)
-            Mode = modeCache;
-            continue;
-         }
+         //if ((!containsBeforeNextSemicolon(inputs, i, /\bIS\b/)) && (Mode != FormatMode.functionOrProcedureDeclare)) {
+         // multiline signal and constants are not supported as arguments of a procedure or function
+         var modeCache = Mode;
+         //Mode = FormatMode.MultilineAssignment;
+         //var __i = beautifySignalAssignment(inputs, result, settings, i, indent), i = __i[0], inputs = __i[1]
+         var __i = beautifySignalAssignment2(inputs, result, settings, i, indent), i = __i[0], inputs = __i[1]
+         errorCheck(inputs, result, i, a)
+         Mode = modeCache;
+         continue;
+         //}
 
 
       }
