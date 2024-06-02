@@ -560,8 +560,10 @@ function beautify(input, settings) {
    //input = input.replace(/[\r\n\s]+$/g, '');
    input = input.replace(/[ \t]+\)/g, ')');
    input = input.replace(/(\s*FUNCTION\s+[\w]+) *\r*\n\s*(RETURN\s+.*;.*)/g, '$1 $2') //function declaration without arguments with return on the next line => stupid so put return behind the function
-   input = input.replace(/\s*\)\s+RETURN\s+([\w]+;)/g, '\r\n) RETURN $1'); //function(..)\r\nreturn type; -> function(..\r\n)return type;
-   input = input.replace(/\)\s*(@@\w+)\r\n\s*RETURN\s+([\w]+;)/g, ') $1\r\n' + ILIndentedReturnPrefix + 'RETURN $2'); //function(..)\r\nreturn type; -> function(..\r\n)return type;
+
+   //input = input.replace(/\s*\)\s+RETURN\s+([\w]+;)/g, '\r\n) RETURN $1'); //function(..)\r\nreturn type; -> function(..\r\n)return type;
+   //input = input.replace(/\)\s*(@@\w+)\r\n\s*RETURN\s+([\w]+;)/g, ') $1\r\n' + ILIndentedReturnPrefix + 'RETURN $2'); //function(..)\r\nreturn type; -> function(..\r\n)return type;
+
    var keywordAndSignRegex = new RegExp("(\\b" + KeyWords.join("\\b|\\b") + "\\b) +([\\-+]) +(\\w)", "g");
    input = input.replace(keywordAndSignRegex, "$1 $2$3"); // `WHEN - 2` -> `WHEN -2`
    input = input.replace(/([,|]) +([+\-]) +(\w)/g, '$1 $2$3'); // `1, - 2)` -> `1, -2)`
@@ -855,11 +857,19 @@ exports.beautifyPortGenericBlock = beautifyPortGenericBlock;
 function beautifyFunctionDeclaration(inputs, result, settings, startIndex, parentEndIndex, indent, endWord) {
    var startResult = result.length
    var re = new RegExp(`\\b${endWord}\\b`)
-   var __i = beautifyBrackets(inputs, result, settings, startIndex, parentEndIndex, indent, re), i = __i[0], inputs = __i[1]
+   var endIndex = getMatchingClosingBrackets(inputs, startIndex)
+   var __i = beautifyBrackets(inputs, result, settings, startIndex, endIndex, indent, re), i = __i[0], inputs = __i[1]
    // now correct incorrect alignment of the return statement but only if it starts with return or ) return
    re = new RegExp(`[\\)]* *${endWord}`)
    if (result[result.length - 1].Line.replaceAll(ILNoAlignmentCorrection, "").search(re) === 0) {
       result[result.length - 1].Line = result[result.length - 1].Line.replaceAll(ILNoAlignmentCorrection, "")
+   }
+   if (i < inputs.length - 2) {
+      if ((inputs[i].search(re) < 0) && (inputs[i + 1].search(re) >= 0)) {
+         // we assume that the return statement is on the line after the closing brackets of the function or procedure
+         result.push(new FormattedLine(inputs[i + 1], indent));
+         i++;
+      }
    }
    for (var k = startResult; k < result.length; k++) {
       result[k].Line = result[k].Line.replaceAll(ILNoAlignmentCorrection, "`")
@@ -871,9 +881,17 @@ function beautifyFunctionDeclaration(inputs, result, settings, startIndex, paren
    for (var k = startResult; k < result.length; k++) {
       result[k].Line = result[k].Line.replaceAll("`", ILNoAlignmentCorrection)
    }
-   var _i = beautify3(inputs, result, settings, i + 1, indent + 1, parentEndIndex), i = _i[0], endIndex = _i[1], inputs = _i[2];
+   var new_indent
+   if (inputs[i].indexOf(";") > -1) {
+      //function declaration, so no indent and return to continue parsing
+      return [i, parentEndIndex];
+   } else {
+      // function definition, so indent and parse the body
+      new_indent = indent + 1
+      var _i = beautify3(inputs, result, settings, i + 1, new_indent, parentEndIndex), i = _i[0], endIndex = _i[1], inputs = _i[2];
+      return [i, parentEndIndex];
+   }
 
-   return [i, parentEndIndex];
 }
 
 
@@ -1134,6 +1152,17 @@ function beautifyMultilineDefault(inputs, result, settings, startIndex, indent) 
 
 exports.beautifyMultilineDefault = beautifyMultilineDefault;
 
+function beautifyMultilineDefault2(inputs, result, settings, startIndex, indent) {
+   var start = startIndex
+   var endIndex = getSemicolonBlockEndIndex(inputs, settings, startIndex, inputs.length - 1)
+   endIndex = endIndex[0]
+
+   var __u = beautifyBrackets(inputs, result, settings, startIndex, endIndex, indent, ";"), i = __u[0], inputs = __u[1]
+
+   return [i, inputs];
+}
+
+exports.beautifyMultilineDefault2 = beautifyMultilineDefault2;
 
 function beautifyBrackets(inputs, result, settings, startIndex, endIndex, indent, endPattern, skipFirstLine = false) {
    var openBrackets = 0
@@ -1671,7 +1700,7 @@ function getSemicolonBlockEndIndex(inputs, settings, startIndex, parentEndIndex)
    var closeBracketsCount = 0;
    for (var i = startIndex; i < inputs.length; i++) {
       var input = inputs[i];
-      var indexOfSemicolon = input.indexOf(";");
+      var indexOfSemicolon = input.search(new RegExp(`(;|${ILSemicolon})`));
       var splitIndex = indexOfSemicolon < 0 ? input.length : indexOfSemicolon + 1;
       var stringBeforeSemicolon = input.substring(0, splitIndex);
       var stringAfterSemicolon = input.substring(splitIndex);
@@ -1683,7 +1712,7 @@ function getSemicolonBlockEndIndex(inputs, settings, startIndex, parentEndIndex)
       }
       if (openBracketsCount == closeBracketsCount) {
          endIndex = i;
-         if (inputs[i].match(/^[ \t]*\);.*/)) {
+         if (inputs[i].match(new RegExp(`^[ \\t]*\\)(;|${ILSemicolon}).*`))) {
             // in case the line with the semicolon only contains );, it is not included in the result
             // this makes that the ); get one indent less than the rest 
             endIndex = i - 1;
@@ -2138,7 +2167,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          continue;
       }
       if (input.regexStartsWith(/TYPE\s+\w+\s+IS\s/)) {
-         if ((input.search(/\bRECORD\b/) > -1) || input.regexStartsWith(/TYPE.*\bIS +PROTECTED +BODY\b/)) {
+         if ((input.search(/\bRECORD\b/) > -1) || input.regexStartsWith(/TYPE.*\bIS +PROTECTED[ BODY]*\b/)) {
             result.push(new FormattedLine(input, indent));
             _f = beautify3(inputs, result, settings, i + 1, indent + 1), i = _f[0], endIndex = _f[1], inputs = _f[2];
          } else { //possible enum, array definition, etc
@@ -2165,7 +2194,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          Mode = FormatMode.functionOrProcedureDeclare
          // mode change needed to deal with last argument of a function declaration, whihc is indistinguisable from a multiline signal declaration
          //_h = beautifyPortGenericBlock(inputs, result, settings, i, endIndex, indent, "PROCEDURE"), i = _h[0], endIndex = _h[1];
-         _h = beautifyFunctionDeclaration(inputs, result, settings, i, endIndex, indent, "IS"), i = _h[0], endIndex = _h[1];
+         _h = beautifyFunctionDeclaration(inputs, result, settings, i, endIndex, indent, "(IS|;)"), i = _h[0], endIndex = _h[1];
          Mode = modeCache
          /*if (inputs[i].regexStartsWith(/.*\)[\s]*IS/)) {
             _o = beautify3(inputs, result, settings, i + 1, indent + 1), i = _o[0], endIndex = _o[1], inputs = _o[2];
@@ -2214,9 +2243,19 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          if (brackets > 0) {
             Mode = FormatMode.functionOrProcedure;
             //_l = beautifySemicolonBlock(inputs, result, settings, i, endIndex, indent), i = _l[0], endIndex = _l[1], inputs = _l[2];
+            var startResult = result.length
             _l = beautifySemicolonBlock2(inputs, result, settings, i, endIndex, indent), i = _l[0], endIndex = _l[1], inputs = _l[2];
             Mode = modeCache;
             errorCheck(inputs, result, i, a)
+            for (var k = startResult; k < result.length; k++) {
+               result[k].Line = result[k].Line.replaceAll(ILNoAlignmentCorrection, "`")
+            }
+            AlignSign_(result, startResult, result.length - 1, "=>", "global", "\r\r", settings.Indentation);
+            AlignSign_(result, startResult, result.length - 1, "@@comments", "global", "\\bWHEN\\b", settings.Indentation);
+            for (var k = startResult; k < result.length; k++) {
+               result[k].Line = result[k].Line.replaceAll("`", ILNoAlignmentCorrection)
+            }
+
             continue;
          }
       }
@@ -2242,7 +2281,8 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          if (!containsBeforeNextSemicolon(inputs, i, /\bIS\b/)) { // if the text doesn't contain IS, the line is a multiline declaration. In the other case, it is the last line of a function or procedure declaration.
             var modeCache = Mode;
             Mode = FormatMode.MultilineAssignment;
-            var __i = beautifyMultilineDefault(inputs, result, settings, i, indent), i = __i[0], inputs = __i[1];
+            //var __i = beautifyMultilineDefault(inputs, result, settings, i, indent), i = __i[0], inputs = __i[1];
+            var __i = beautifyMultilineDefault2(inputs, result, settings, i, indent), i = __i[0], inputs = __i[1];
             errorCheck(inputs, result, i, a)
             Mode = modeCache;
             continue;
