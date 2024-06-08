@@ -292,8 +292,11 @@ var BeautifierSettings = /** @class */ (function () {
 
 function fix_in_allignment(arr) {
    for (let k = 0; k < arr.length; k++) {
-      if (arr[k].regexStartsWith(new RegExp("(.*?)\\s*:\\s*IN \\S+(.*)"))) {
-         arr[k] = arr[k].replace(new RegExp("(.*?\\s*:\\s*IN) (\\S+.*)"), "$1  $2"); // : in std_logic => : in  std_logic;
+      if (arr[k].Line.regexStartsWith(new RegExp("(.*?)\\s*:\\s*IN \\S+(.*)"))) {
+         arr[k].Line = arr[k].Line.replace(new RegExp("(.*?\\s*:\\s*IN) (\\S+.*)"), "$1  $2"); // : in std_logic => : in  std_logic;
+      }
+      if (arr[k].Line.regexStartsWith(new RegExp("(.*?)\\s*:\\s*OUT \\S+(.*)"))) {
+         arr[k].Line = arr[k].Line.replace(new RegExp("(.*?\\s*:\\s*OUT) (\\S+.*)@@comment(.*)"), "$1 $2 @@comment$3"); // : in std_logic => : in  std_logic;
       }
    }
    return arr;
@@ -575,6 +578,7 @@ function beautify(input, settings) {
    input = input.replace(/(\s+port)\s*([^\(]*)\r\n\s*\(/gi, "$1 \($2"); // port with bracket on next line
    input = input.replace(/WHEN *(\S+) *=> *([^;]+@@.*$)/gi, "WHEN $1 =>\r\n$2") // when followed by something and ending in a comment
    input = input.replace(/WHEN *(\S+) *=> *((?!.*@@)[^;]+$)/gi, "WHEN $1 =>\r\n$2") // when followed by not a comment
+   input = input.replace(/REPORT(\S*)/gi, "REPORT $1") // when followed by not a comment
 
    // line starting with procedure and not containing IS
    // ***** be more relaxed on function and procedure definitions with new bracket system
@@ -609,13 +613,14 @@ function beautify(input, settings) {
 
    var result = [];
    beautify3(arr, result, settings, 0, 0);
+   fix_in_allignment(result);
+
    var alignSettings = settings.SignAlignSettings;
    if (alignSettings != null && alignSettings.isAll) {
       AlignSigns(result, 0, result.length - 1, alignSettings.mode, settings.Indentation);
    }
    arr = FormattedLineToString(result, settings.Indentation);
 
-   fix_in_allignment(arr);
 
    allignOn(arr, "\\bENTITY", "[ ]*\\bEND\\b", ":");
    allignOn(arr, "\\bENTITY", "[ ]*\\bEND\\b", "@@")
@@ -904,14 +909,14 @@ function AlignSigns(result, startIndex, endIndex, mode, indentation) {
    // except procedure or function at the beginning of the line is to prevent that arguments of procs or functions are aliggned with signals above
    AlignSign_(result, startIndex, endIndex, ":", mode, "(^(?!ATTRIBUTE)\\bIS\\b|^\\s*\\)|(^\\s*PROCEDURE)|(^\\s*FUNCTION))", indentation);
    // exlude when and if since the smaller than or equal operator is the same as the assignment operator, but we don't want to align on that
-   AlignSign_(result, startIndex, endIndex, "(:|<)=", mode, "(^\(?!.*;\).*\\b(when|IF|ELSIF)\\b.*|^\\s*\\))", indentation);
+   AlignSign_(result, startIndex, endIndex, "(:|<)=", mode, "(^\(?!.*;\).*\\b(when|IF|ELSIF|ASSERT)\\b.*|^\\s*\\))", indentation);
    AlignSign_(result, startIndex, endIndex, "=>", mode, "\r\r", indentation);
    //AlignSign_(result, startIndex, endIndex, "<=", mode);
    //AlignSign_(result, startIndex, endIndex, "<=", mode);
    AlignSign_(result, startIndex, endIndex, "@@comments", mode, "\\bWHEN\\b", indentation);
 }
 exports.AlignSigns = AlignSigns;
-function AlignSign_(result, startIndex, endIndex, symbol, mode, exclude, indentation) {
+function AlignSign_(result, startIndex, endIndex, symbol, mode, exclude, indentation, ignoreNoAlign = false) {
    var maxSymbolIndex = -1;
    var symbolIndices = {};
    var startLine = startIndex;
@@ -927,7 +932,11 @@ function AlignSign_(result, startIndex, endIndex, symbol, mode, exclude, indenta
    var colonIndex = 0
    var maxIndent = 0
    var forcedBlockEnd = false
+   var noAlign = -1
    var skipLine = false
+   if (ignoreNoAlign) {
+      noAlign = 1e6
+   }
    if (typeof exclude === 'undefined') {
       exclude = /\r\r/
    }
@@ -943,10 +952,18 @@ function AlignSign_(result, startIndex, endIndex, symbol, mode, exclude, indenta
       /*if (line.regexCount(regex) > 1) {
           continue;
       }*/
-
-      skipLine = (result[i].Line.trim().search(/\b(IF|ELSIF)\b/) === 0) || skipLine
-      skipLine = skipLine || (result[i].Line.trim().search(ILNoAlignmentCorrection) > -1)
       var colonIndex = line.regexIndexOf(regex);
+      if (symbol == "(:|<)=") {
+         // filter out conditions which can appear in function calls as a boolean e.g a <= 5
+         // the idea is that these kinds of constructions only appear when the number of open brackets at the position of the <= is > 0
+         var a = countOpenBrackets(line.slice(0, colonIndex))
+         if (a[0] > 0) {
+            skipLine = true
+         }
+
+      }
+      skipLine = skipLine || (result[i].Line.trim().search(/\b(IF|ELSIF|ASSERT)\b/) === 0)
+      skipLine = skipLine || (result[i].Line.trim().search(ILNoAlignmentCorrection) > noAlign)
       if (colonIndex > 0 && (line.search(exclude) < 0) && !forcedBlockEnd && !skipLine) {
          //the WHEN lines in a case do
          maxSymbolIndex = Math.max(maxSymbolIndex, colonIndex);
@@ -1156,6 +1173,9 @@ function beautifyMultilineDefault2(inputs, result, settings, startIndex, indent)
    var start = startIndex
    var endIndex = getSemicolonBlockEndIndex(inputs, settings, startIndex, inputs.length - 1)
    endIndex = endIndex[0]
+   if (inputs[endIndex].indexOf(";") < 0) {
+      endIndex++
+   }
 
    var __u = beautifyBrackets(inputs, result, settings, startIndex, endIndex, indent, ";"), i = __u[0], inputs = __u[1]
 
@@ -1267,6 +1287,13 @@ function beautifyBrackets(inputs, result, settings, startIndex, endIndex, indent
                }
             }
 
+         } else {
+            // no open bracket on the first line
+            var a = inputs[i].match(/\S+/)
+            if (a) {
+               basePadding = a[0].length + 1
+            }
+            paddingSpaces = 0
          }
       }
       else {
@@ -2017,8 +2044,8 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
       "CASE",
       "ARCHITECTURE",
       "PROCEDURE",
-      "PACKAGE\\s+[\\w]+\\s+IS\\s*$", // changed to prevent that package is new work.tdi_pkg generic map(<>) is not triggered
-      "PACKAGE\\s+BODY\\s+[\\w]+\\s+IS\\s*$", // changed to prevent that package is new work.tdi_pkg generic map(<>) is not triggered
+      "PACKAGE\\s+[\\w]+\\s+IS\\s*", // changed to prevent that package is new work.tdi_pkg generic map(<>) is not triggered
+      "PACKAGE\\s+BODY\\s+[\\w]+\\s+IS\\s*", // changed to prevent that package is new work.tdi_pkg generic map(<>) is not triggered
       "(([\\w\\s]*:)?(\\s)*PROCESS)",
       "(([\\w\\s]*:)?(\\s)*POSTPONED PROCESS)",
       "(.*\\s*PROTECTED)",
