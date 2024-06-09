@@ -307,8 +307,8 @@ function fix_closing_brackets(input) {
    //input = input.replace(/(\s*generic)\s*\(\s*(\w*)\s*:\s*(\w*)/gi, "$1 \(\r\n$2 : $3"); // generic with bracket on next line
    //input = input.replace(/(\s*generic\s+map)\s*\((.+)/gi, "$1\(\r\n$2"); // generic with bracket and assignment on the same line
    //input = input.replace(/(\s*generic)\s*\((.+)/gi, "$1\(\r\n$2"); // generic with bracket and assignment on the same line
-
-   input = input.replace(/\);{1}([^;^\^\n)]*?\n+\s*(port|generic)\s*\()/gi, "\r\n);$1") // generic with closing bracket on the same line as last assingment
+   input = input.replace(/(.*\bENTITY\b.*)\((.*)\)/g, "$1[$2]")// trick to get entities with architecture between brackets aligned correctly. The next lines screw things up if not done.
+   input = input.replace(/^(?!.*ENTITY.*)\);{1}([^;^\^\n)]*?\n+\s*(port|generic)\s*\()/gi, "\r\n);$1") // generic with closing bracket on the same line as last assingment
    input = input.replace(/\){1}([^,^\^\n)]*?\n+\s*(port|generic)\s+map\s*\()/gi, "\r\n)$1") // generic with closing bracket on the same line as last assingment
    input = input.replace(/(?!.*<>\))(\r*\n\s*(port|generic)\s+map[\s\S\n]+?)\);(.*)/gi, "$1\r\n);$3"); // closing port map bracket not on seperate line
    input = input.replace(/(?!.*<>\))(\r*\n\s*(port|generic)\s+map[\s\S\n]+?)\);(.*)/gi, "$1\r\n);$3"); // closing port map bracket not on seperate line
@@ -320,6 +320,7 @@ function fix_closing_brackets(input) {
    input = input.replace(/\r\n\s*[\r\n]+(\s*\);.*)/gi, "\r\n$1"); // delete empty line before ); 
    input = input.replace(/\r\n\s*[\r\n]+(\s*\).*)/gi, "\r\n$1"); // delete empyt line before )
    input = input.replace(/\r\n\s*[\r\n]+(\s*(port|generic).*)/gi, "\r\n$1"); // delete empty line before port
+   input = input.replace(/(.*\bENTITY\b.*)\[(.*)\]/g, "$1($2)")// trick to get entities with architecture between brackets aligned correctly. The next lines screw things up if not done.
    //input = input.replace(/\r\n\s*[\r\n]+(\s*generic.*)/gi, "\r\n$1"); // delete empty line before generic
    //input = input.replace(/\r\n\s*[\r\n]+(\s*end.*)/gi, "\r\n$1"); // delete empty line before end
    return input;
