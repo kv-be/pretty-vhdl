@@ -612,7 +612,13 @@ function beautify(input, settings) {
 
 
    var result = [];
-   beautify3(arr, result, settings, 0, 0);
+   try {
+      beautify3(arr, result, settings, 0, 0);
+   } catch (e) {
+      var msg = e.stack.split("\n")
+      var txt = msg.slice(0, 2).join("\n")
+      return [, txt]
+   }
    fix_in_allignment(result);
 
    var alignSettings = settings.SignAlignSettings;
@@ -670,7 +676,7 @@ function beautify(input, settings) {
    }
    input = autoformatOn(input);
 
-   return input;
+   return [input,];
 }
 exports.beautify = beautify;
 
@@ -2097,8 +2103,6 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
    var newLineAfterKeyWordsStr = blockStartsKeyWords.join("|");
    var regexBlockMidKeyWords = blockMidKeyWords.convertToRegexBlockWords();
    var regexBlockStartsKeywords = new RegExp("([\\w]+\\s*:\\s*)?(" + newLineAfterKeyWordsStr + ")([^\\w]|$)");
-
-
 
    if (endIndex == null) {
       endIndex = inputs.length - 1;

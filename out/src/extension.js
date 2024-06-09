@@ -53,10 +53,20 @@ function activate(context) {
             var content = getCurrentTextSelection()
             var result = [];
             var beautifierSettings = config.getConfig(options);
-            var formatted = VHDLFormatter.beautify(content, beautifierSettings);
+            var msg = ""
+            var formatted
+            try {
+                var _i = VHDLFormatter.beautify(content, beautifierSettings), formatted = _i[0], msg = _i[1];
+            } catch (e) {
+                msg = e.stack.split()
+                msg = msg.slice(0, 2).join("\n")
+                vscode.window.showErrorMessage(`Unxexpected problem : ${msg}`)
+            }
             if (formatted) {
                 //result.push(new vscode.TextEdit(range, formatted));
                 updateCurrentTextSelection(formatted)
+            } else {
+                vscode.window.showErrorMessage(`Problem : ${msg}`)
             }
             return result;
         }
