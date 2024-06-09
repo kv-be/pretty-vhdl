@@ -1129,7 +1129,7 @@ function beautifyMultilineIf2(inputs, result, settings, startIndex, indent) {
    if (elsif) {
       indent--
    }
-   var _i = beautifyBrackets(inputs, result, settings, startIndex, endIndex, indent, /(THEN)/, false), i = _i[0], inputs = _i[1]
+   var _i = beautifyBrackets(inputs, result, settings, startIndex, endIndex, indent, /(THEN|GENERATE)/, false), i = _i[0], inputs = _i[1]
 
    var _c = beautify3(inputs, result, settings, i + 1, indent + 1, endIndex), i = _c[0], endIndex = _c[1], inputs = _c[2];
    return [i, endIndex, inputs]
