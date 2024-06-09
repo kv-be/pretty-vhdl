@@ -578,7 +578,7 @@ function beautify(input, settings) {
    input = input.replace(/(\s+port)\s*([^\(]*)\r\n\s*\(/gi, "$1 \($2"); // port with bracket on next line
    input = input.replace(/WHEN *(\S+) *=> *([^;]+@@.*$)/gi, "WHEN $1 =>\r\n$2") // when followed by something and ending in a comment
    input = input.replace(/WHEN *(\S+) *=> *((?!.*@@)[^;]+$)/gi, "WHEN $1 =>\r\n$2") // when followed by not a comment
-   input = input.replace(/REPORT(\S*)/gi, "REPORT $1") // when followed by not a comment
+   input = input.replace(/\bREPORT\b(\S*)/gi, "REPORT $1") // when followed by not a comment
 
    // line starting with procedure and not containing IS
    // ***** be more relaxed on function and procedure definitions with new bracket system
@@ -2333,9 +2333,9 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
 
       if (input.regexStartsWith(/\bREPORT\b/) && (input.indexOf(";") === -1)) {
          var start = result.length
-         inputs[i] = inputs[i].replace("REPORT ", "REPORT(") // add a bracket to make the magic happen
+         inputs[i] = inputs[i].replace(/\bREPORT\b/, "REPORT(") // add a bracket to make the magic happen
          __i = beautifyBrackets(inputs, result, settings, i, endIndex, indent, /(SEVERITY|;)/), i = __i[0], inputs = __i[1]
-         result[start].Line = result[start].Line.replace("REPORT(", "REPORT ") // remove the bracket
+         result[start].Line = result[start].Line.replace(/\bREPORT\(/, "REPORT ") // remove the bracket
          if (result[result.length - 1].Line.search(/\bSEVERITY\b/) > -1) {
             result[result.length - 1].Line = result[result.length - 1].Line.replaceAll(ILForceSpace, " ").trim() // correct the severity 
          }
