@@ -2129,13 +2129,8 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
             __i = beautify3(inputs, result, settings, i + 1, indent + 1, endIndex), i = __i[0], endIndex = __i[1], inputs = __i[2]
          } else { // process without sensitivity list
             result.push(new FormattedLine(input, indent));
-            var u;
-            //search for begin and beautify everything between current pos and begin
-            for (u = i; u < endIndex; u++) {
-               if (inputs[u].indexOf("BEGIN") > -1) break;
-            }
-            __i = beautify3(inputs, result, settings, i + 1, indent + 1, u), i = __i[0], endIndex = __i[1], inputs = __i[2]
          }
+         __i = beautify3(inputs, result, settings, i + 1, indent + 1, endIndex), i = __i[0], endIndex = __i[1], inputs = __i[2]
          continue
       }
 
