@@ -2128,7 +2128,6 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          if (input.regexStartsWith(/(?!\bEND\b).*\bPROCESS\s*\(/)) {
             __i = beautifyBrackets(inputs, result, settings, i, endIndex, indent, /\bBEGIN\b/), i = __i[0], inputs = __i[1]
             result[result.length - 1].Line = result[result.length - 1].Line.replaceAll(ILForceSpace, " ").trim()
-            __i = beautify3(inputs, result, settings, i + 1, indent + 1, endIndex), i = __i[0], endIndex = __i[1], inputs = __i[2]
          } else { // process without sensitivity list
             result.push(new FormattedLine(input, indent));
          }
