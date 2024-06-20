@@ -524,7 +524,7 @@ function beautify(input, settings) {
    input = input.replace(/[\t ]+/g, ' ');
    input = input.replace(/\([\t ]+/g, '\(');
    input = input.replace(/[ ]+;/g, ';');
-   input = input.replace(/:[ ]*(PROCESS|ENTITY)/gi, ':$1');
+   input = input.replace(/:[ ]*(\bPROCESS\b|\bENTITY\b)/gi, ':$1');
    arr = input.split("\r\n");
    if (settings.RemoveAsserts) {
       RemoveAsserts(arr); //RemoveAsserts must be after EscapeQuotes
@@ -868,11 +868,24 @@ exports.beautifyPortGenericBlock = beautifyPortGenericBlock;
 
 function beautifyFunctionDeclaration(inputs, result, settings, startIndex, parentEndIndex, indent, endWord) {
    var startResult = result.length
-   var re = new RegExp(`\\b${endWord}\\b`)
+   var re = endWord
    var endIndex = getMatchingClosingBrackets(inputs, startIndex)
+   if (inputs[endIndex].indexOf("RETURN") < 0) {
+      // in case of a function, closing brackets alone are not enough. THe return statement can be on the next 2 lines:
+      // all double empty lines are deleted by default, so in the worst case, there is an empty line after the last
+      // closing bracket. 
+      if (inputs.length - 1 > endIndex + 2) {
+         if (inputs[endIndex + 1].indexOf("RETURN") > -1) endIndex = endIndex + 1
+         else if (inputs[endIndex + 2].indexOf("RETURN") > -1) endIndex = endIndex + 2
+      } else {
+         if (inputs.length - 1 > endIndex + 1) {
+            if (inputs[endIndex + 1].indexOf("RETURN") > -1) endIndex = endIndex + 1
+         }
+      }
+   }
    var __i = beautifyBrackets(inputs, result, settings, startIndex, endIndex, indent, re), i = __i[0], inputs = __i[1]
    // now correct incorrect alignment of the return statement but only if it starts with return or ) return
-   re = new RegExp(`[\\)]* *${endWord}`)
+   re = new RegExp(`[\\)]* *RETURN`)
    if (result[result.length - 1].Line.replaceAll(ILNoAlignmentCorrection, "").search(re) === 0) {
       result[result.length - 1].Line = result[result.length - 1].Line.replaceAll(ILNoAlignmentCorrection, "")
    }
@@ -894,7 +907,7 @@ function beautifyFunctionDeclaration(inputs, result, settings, startIndex, paren
       result[k].Line = result[k].Line.replaceAll("`", ILNoAlignmentCorrection)
    }
    var new_indent
-   if (inputs[i].indexOf(";") > -1) {
+   if (((inputs[i].indexOf(";") > -1) || (inputs[i].indexOf(ILSemicolon) > -1)) && (endWord.toString().indexOf("bIS") < 0)) {
       //function declaration, so no indent and return to continue parsing
       return [i, parentEndIndex];
    } else {
@@ -929,11 +942,11 @@ function AlignSign_(result, startIndex, endIndex, symbol, mode, exclude, indenta
    var symbolIndices = {};
    var startLine = startIndex;
    var labelAndKeywords = [
-      "([\\w\\s]*:(\\s)*PROCESS)",
+      "([\\w\\s]*:(\\s)*\\bPROCESS\\b)",
       "([\\w\\s]*:(\\s)*POSTPONED PROCESS)",
       "([\\w\\s]*:\\s*$)",
       "([\\w\\s]*:.*\\s+GENERATE)",
-      "(PROCEDURE|FUNCTION)\\s+[\\w]+\\s*\\(.*"   // to filter out one line procedure/functions declarations containing default values
+      "\\b(PROCEDURE|FUNCTION)\\b\\s+[\\w]+\\s*\\(.*;"   // to filter out one line procedure/functions declarations containing default values
    ];
    var labelAndKeywordsStr = labelAndKeywords.join("|");
    var labelAndKeywordsRegex = new RegExp("(" + labelAndKeywordsStr + ")([^\\w]|$)");
@@ -1206,7 +1219,7 @@ function beautifyBrackets(inputs, result, settings, startIndex, endIndex, indent
    var line
    for (var i = startIndex; i <= endIndex; i++) {
       var patPos = inputs[i].match(endPattern)
-      if (patPos) {
+      if ((patPos) && (endPattern.toString() != new RegExp('\\)').toString())) { //endpattern - /\)/ means returning after the last matching closing bracket and assumes the first line contains an opening bracket
          // hide everything behind the endPattern, to avoid bad brackets counting in case of e.g. ) := ( 
          line = inputs[i].slice(0, patPos.index) + patPos[0] + " ".repeat(inputs[i].slice(patPos.index).length)
       } else {
@@ -1221,7 +1234,15 @@ function beautifyBrackets(inputs, result, settings, startIndex, endIndex, indent
          break;
       }
 
-      endReached = (line.search(endPattern) > -1)
+      if (endPattern.toString() != new RegExp('\\)').toString()) {
+         endReached = (line.search(endPattern) > -1)
+      } else {
+         if (!onlyBracketFirstLine) {
+            endReached = ((totalBrackets + openBrackets) === 0)
+         } else {
+            endReached = ((totalBrackets + openBrackets) === 1)
+         }
+      }
 
       totalBrackets = totalBrackets + openBrackets
       var pad = 0
@@ -1571,10 +1592,12 @@ exports.beautifySignalAssignment = beautifySignalAssignment;
 
 function beautifySignalAssignment2(inputs, result, settings, startIndex, indent) {
    var endIndex = getSemicolonBlockEndIndex(inputs, settings, startIndex, inputs.length - 1)
-   endIndex = endIndex[0]
-   if (inputs[endIndex].indexOf(";") < 0) {
-      endIndex = endIndex + 1
+   if (endIndex[0] === -1) {
+      // no correct format found
+      throw new Error(`File contains parsing errors in the line containing \n${inputs[startIndex]}`);
    }
+   endIndex = endIndex[0]
+
    var startResult = result.length
    var _i = beautifyBrackets(inputs, result, settings, startIndex, endIndex, indent, /(;|:=)/, false), i = _i[0], inputs = _i[1]
    var assignmentSpace = result[result.length - 1].Line.search(/(:|<)=/) + 3 // + 3 to compensate for the length of the assignment and the space behind
@@ -2044,28 +2067,28 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
    //var oldInstanceAlignment = false
    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t;
    var i;
-   var regexOneLineBlockKeyWords = new RegExp(/(PROCEDURE)[^\w](?!.+[^\w]IS([^\w]|$))/); //match PROCEDURE..; but not PROCEDURE .. IS;
-   var regexFunctionMultiLineBlockKeyWords = new RegExp(/(FUNCTION|IMPURE FUNCTION)[^\w](?=.+[^\w]IS([^\w]|$))/); //match FUNCTION .. IS; but not FUNCTION
+   var regexOneLineBlockKeyWords = new RegExp(/(\bPROCEDURE\b)[^\w](?!.+[^\w]IS([^\w]|$))/); //match PROCEDURE..; but not PROCEDURE .. IS;
+   var regexFunctionMultiLineBlockKeyWords = new RegExp(/\b(FUNCTION|IMPURE FUNCTION)\b[^\w](?=.+[^\w]IS([^\w]|$))/); //match FUNCTION .. IS; but not FUNCTION
    var blockMidKeyWords = ["BEGIN"];
    var blockStartsKeyWords = [
-      "IF",
-      "CASE",
-      "ARCHITECTURE",
-      "PROCEDURE",
+      "\\bIF\\b",
+      "\\bCASE\\b",
+      "\\bARCHITECTURE\\b",
+      "\\bPROCEDURE\\b",
       "PACKAGE\\s+[\\w]+\\s+IS\\s*", // changed to prevent that package is new work.tdi_pkg generic map(<>) is not triggered
       "PACKAGE\\s+BODY\\s+[\\w]+\\s+IS\\s*", // changed to prevent that package is new work.tdi_pkg generic map(<>) is not triggered
-      "(([\\w\\s]*:)?(\\s)*PROCESS)",
-      "(([\\w\\s]*:)?(\\s)*POSTPONED PROCESS)",
-      "(.*\\s*PROTECTED)",
-      "(COMPONENT)",
-      "FOR",
-      "WHILE",
-      "LOOP",
-      "(.*\\s*GENERATE)",
-      "(CONTEXT[\\w\\s\\\\]+IS)",
-      "(CONFIGURATION(?!.+;))",
-      "BLOCK",
-      "UNITS",
+      "(([\\w\\s]*:)?(\\s)*\\bPROCESS\\b)",
+      "(([\\w\\s]*:)?(\\s)*POSTPONED +PROCESS)",
+      "(.*\\s*\\bPROTECTED\\b)",
+      "(\\bCOMPONENT\\b)",
+      "\\bFOR\\b",
+      "\\bWHILE\\b",
+      "\\bLOOP\\b",
+      "(.*\\s*\\bGENERATE)",
+      "(\\bCONTEXT[\\w\\s\\\\]+IS)",
+      "(\\bCONFIGURATION\\b(?!.+;))",
+      "\\bBLOCK\\b",
+      "\\bUNITS\\b",
       "\\w+\\s+\\w+\\s+IS\\s+\\bRECORD\\b"
    ];
 
@@ -2124,11 +2147,13 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          result.push(new FormattedLine(input, indent));
          return [i, endIndex, inputs];
       }
-      if (input.regexStartsWith(/(?!\bEND\b).*\bPROCESS/)) {
+      if (input.regexStartsWith(/(?!\bEND\b).*\bPROCESS\b/)) {
+         // if it starts with process and open brackets are detected
+         // *** SOLVE ME : 
          if (input.regexStartsWith(/(?!\bEND\b).*\bPROCESS\s*\(/)) {
-            __i = beautifyBrackets(inputs, result, settings, i, endIndex, indent, /\bBEGIN\b/), i = __i[0], inputs = __i[1]
-            result[result.length - 1].Line = result[result.length - 1].Line.replaceAll(ILForceSpace, " ").trim()
-         } else { // process without sensitivity list
+            __i = beautifyBrackets(inputs, result, settings, i, endIndex, indent, new RegExp('\\)')), i = __i[0], inputs = __i[1]
+            //result[result.length - 1].Line = result[result.length - 1].Line.replaceAll(ILForceSpace, " ").trim()
+         } else { // process without sensitivity list or without open brackets on the first line
             result.push(new FormattedLine(input, indent));
          }
          __i = beautify3(inputs, result, settings, i + 1, indent + 1, endIndex), i = __i[0], endIndex = __i[1], inputs = __i[2]
@@ -2225,12 +2250,18 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          errorCheck(inputs, result, i, a)
          continue;
       }
-      if (input.regexStartsWith(/^(?!.*\bis$)PROCEDURE[\s\w]+\(.*/)) {
+      if (input.regexStartsWith(/^(?!.*\bis$)\bPROCEDURE\b[\s\w]+\(.*/)) {
          var modeCache = Mode;
          Mode = FormatMode.functionOrProcedureDeclare
          // mode change needed to deal with last argument of a function declaration, whihc is indistinguisable from a multiline signal declaration
          //_h = beautifyPortGenericBlock(inputs, result, settings, i, endIndex, indent, "PROCEDURE"), i = _h[0], endIndex = _h[1];
-         _h = beautifyFunctionDeclaration(inputs, result, settings, i, endIndex, indent, "(IS|;)"), i = _h[0], endIndex = _h[1];
+         var endword
+         if (input.search(/\bIS\b/) > -1) { // procedure definition
+            endword = new RegExp(`(\\bIS\\b)`)
+         } else { // prodecure declaration
+            endword = /\)/
+         }
+         _h = beautifyFunctionDeclaration(inputs, result, settings, i, endIndex, indent, endword), i = _h[0], endIndex = _h[1];
          Mode = modeCache
          /*if (inputs[i].regexStartsWith(/.*\)[\s]*IS/)) {
             _o = beautify3(inputs, result, settings, i + 1, indent + 1), i = _o[0], endIndex = _o[1], inputs = _o[2];
@@ -2261,7 +2292,14 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          Mode = FormatMode.functionOrProcedureDeclare
          // mode change needed to deal with last argument of a function declaration, whihc is indistinguisable from a multiline signal declaration
          //_k = beautifyPortGenericBlock(inputs, result, settings, i, endIndex, indent, "IMPURE FUNCTION"), i = _k[0], endIndex = _k[1];
-         _k = beautifyFunctionDeclaration(inputs, result, settings, i, endIndex, indent, "RETURN"), i = _k[0], endIndex = _k[1];
+         var endword
+         if (input.search("\bIS\b") > -1) { // function definition
+            endword = new RegExp(`(\\bIS\\b)`)
+         } else { // function declaration
+            endword = /RETURN/
+         }
+
+         _k = beautifyFunctionDeclaration(inputs, result, settings, i, endIndex, indent, endword), i = _k[0], endIndex = _k[1];
          Mode = modeCache
          errorCheck(inputs, result, i, a)
          continue;
@@ -2388,7 +2426,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
 exports.beautify3 = beautify3;
 function ReserveSemicolonInKeywords(arr) {
    for (var i = 0; i < arr.length; i++) {
-      if (arr[i].match(/FUNCTION|PROCEDURE/) != null) {
+      if (arr[i].match(/\bFUNCTION\b|\bPROCEDURE\b/) != null) {
          arr[i] = arr[i].replace(/;/g, ILSemicolon);
       }
    }
