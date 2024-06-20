@@ -961,12 +961,21 @@ function AlignSign_(result, startIndex, endIndex, symbol, mode, exclude, indenta
    if (typeof exclude === 'undefined') {
       exclude = /\r\r/
    }
+   var openBrackets = 0
+   var endOfProcedure = false
    for (var i = startIndex; i <= endIndex; i++) {
       // mask out (other => <whatever>) constructs           
       var line = result[i].Line.replaceAll(/\(OTHERS => /g, "OOOOOOOOOOO");
 
-      if (((symbol == ":") || (symbol == "(:|<)=")) && line.regexStartsWith(labelAndKeywordsRegex)) {
+      if (((symbol == ":") || (symbol == "(:|<)=")) && line.regexStartsWith(labelAndKeywordsRegex) || (endOfProcedure)) {
          forcedBlockEnd = true;
+         endOfProcedure = false;
+      }
+      openBrackets = openBrackets + countOpenBrackets(line)[0];
+      if ((openBrackets === 0) && (countOpenBrackets(line)[0] < 0)) {
+         // if we found the closing brackets of a multiline, the end of a block is reached and alignment is needed
+         // this to prevent that the local vars or constants would be aligned with the : or := in the argument list
+         endOfProcedure = true;
       }
       // why is this????
       var regex = new RegExp("(?<=([\\s\\S\\\\]|^))" + symbol + "(?=[^=]+|$)");
@@ -985,6 +994,7 @@ function AlignSign_(result, startIndex, endIndex, symbol, mode, exclude, indenta
       }
       skipLine = skipLine || (result[i].Line.trim().search(/\b(IF|ELSIF|ASSERT)\b/) === 0)
       skipLine = skipLine || (result[i].Line.trim().search(ILNoAlignmentCorrection) > noAlign)
+
       if (colonIndex > 0 && (line.search(exclude) < 0) && !forcedBlockEnd && !skipLine) {
          //the WHEN lines in a case do
          maxSymbolIndex = Math.max(maxSymbolIndex, colonIndex);
