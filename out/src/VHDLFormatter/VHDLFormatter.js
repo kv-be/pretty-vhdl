@@ -590,7 +590,7 @@ function beautify(input, settings) {
    input = input.replace(/(\s+port)\s*([^\(]*)\r\n\s*\(/gi, "$1 \($2"); // port with bracket on next line
    input = input.replace(/WHEN *(\S+) *=> *([^;]+@@.*$)/gi, "WHEN $1 =>\r\n$2") // when followed by something and ending in a comment
    input = input.replace(/WHEN *(\S+) *=> *((?!.*@@)[^;]+$)/gi, "WHEN $1 =>\r\n$2") // when followed by not a comment
-   input = input.replace(/\bREPORT\b(\S*)/gi, "REPORT $1") // when followed by not a comment
+   input = input.replace(/\bREPORT\b(\S+)/gi, "REPORT $1") // when followed by not a comment
 
    // line starting with procedure and not containing IS
    // ***** be more relaxed on function and procedure definitions with new bracket system
@@ -1036,8 +1036,8 @@ function AlignSign_(result, startIndex, endIndex, symbol, mode, exclude, indenta
             // to the end of the declaration
             if (endOfMultline < result.length - 1) {
                do {
-                  endOfMultline++
                   text = text + " " + result[endOfMultline].Line.replaceAll(/\(OTHERS => /g, "OOOOOOOOOOO");
+                  endOfMultline++
                } while (((result[endOfMultline].Line.indexOf(";") === -1) && (!skipLine)) && (endOfMultline < result.length - 1)) //search for the next ;
             }
             if (text.indexOf(ILForceSpace) >= 0) {// ILForceSpace found => indeed multiline assignment...
@@ -1154,6 +1154,31 @@ function AlignSign2_(result, startIndex, endIndex, symbol, mode, exclude, indent
             maxIndent = Math.max(maxIndent, result[i].Indent);
             symbolIndices[i] = colonIndex;
 
+            //the next ifs  make sure that if a symbol in a multiline is shifted, all the lines of the multiline shift with it
+            if (((symbol === ":") || (symbol === "(:|<)=")) && (result[i].Line.indexOf(";") < 0)) {
+               var text = ""
+               var endOfMultline = i
+               // here we detect when the ; is seen. In case of a multiline declaration, we need to fast forward 
+               // to the end of the declaration
+               if (endOfMultline < result.length - 1) {
+                  do {
+                     endOfMultline++
+                     text = text + " " + result[endOfMultline].Line.replaceAll(/\(OTHERS => /g, "OOOOOOOOOOO");
+                  } while (((result[endOfMultline].Line.indexOf(";") === -1)) && (endOfMultline < result.length - 2)) //search for the next ;
+               }
+               if (text.indexOf(ILForceSpace) >= 0) {// ILForceSpace found => indeed multiline assignment...
+                  // fast forward over the rest of the multiline declaration 
+                  do {
+                     i++                                                                             //this is to cover cases where a declaration ends in a ); on a seperate line
+                     if ((i <= endOfMultline) && ((result[i].Line.indexOf(ILForceSpace) === 0) || (result[i].Line.indexOf(");") === 0))) {
+                        symbolIndices[i] = colonIndex * -1;
+                     } else {
+                        break;
+                     }
+                  } while (endOfMultline > i) // must be === 0 since case statements have also forced spaces but not at the start of a line
+                  //i-- //we detect that a line doesn't contain a forced space anymore, so we need to decrement i to let this line parse again in the main lop
+               }
+            }
          }
          else if ((mode != "local" && !line.startsWith(ILCommentPrefix) && line.length != 0)
             || (mode == "local")) {
@@ -1218,17 +1243,19 @@ function beautifyCaseBlock(inputs, result, settings, startIndex, indent, indenta
       return startIndex;
    }
    result.push(new FormattedLine(inputs[startIndex], indent));
+   var startResultIndex = result.length - 1
    var _i = beautify3(inputs, result, settings, startIndex + 1, indent + 2), i = _i[0], endIndex = _i[1], inputs = _i[2];
-   result[i].Indent = indent;
-   for (var i = startIndex; i < inputs.length; i++) {
+   result[result.length - 1].Indent = indent; // needed because the beautify might add lines
+   // the code below screws up a case in a case statement as it will trigger on the first end case 
+   /*for (var i = startIndex; i < inputs.length; i++) {
       if (inputs[i].search(/end\s+case/i) > -1) {
          endCase = i
          break
       }
-   }
-   if (endCase > -1) {
-      AlignSign2_(result, startIndex, endCase, "=>", "global", "\\r\\\r", indentation);
-   }
+   }*/
+   //if (endCase > -1) {
+   AlignSign2_(result, startResultIndex, result.length - 1, "=>", "global", "\\r\\\r", indentation);
+   //}
 
    return [i, inputs];
 }
@@ -1692,7 +1719,7 @@ function beautifySignalAssignment(inputs, result, settings, startIndex, indent) 
       }
       if (openBrackets > 0) {
          // we are on a line with a opening bracket
-
+ 
          nextLinePadding = lastOpenBracket + 1
       } else {
          if (openBrackets < 0) {
@@ -1736,6 +1763,7 @@ function beautifySignalAssignment2(inputs, result, settings, startIndex, indent)
       throw new Error(`File contains parsing errors in the line containing \n${inputs[startIndex]}`);
    }
    endIndex = endIndex[0]
+   if (inputs[endIndex].indexOf(";") < 0) endIndex++
 
    var startResult = result.length
    var _i = beautifyBrackets(inputs, result, settings, startIndex, endIndex, indent, /(;|:=)/, false), i = _i[0], inputs = _i[1]
@@ -1756,15 +1784,15 @@ function beautifySignalAssignment2(inputs, result, settings, startIndex, indent)
    AlignSign2_(result, startResult, result.length - 1, "@@comments", "global", "\\bWHEN\\b", settings.Indentation);
    for (var k = startResult; k < result.length; k++) {
       result[k].Line = result[k].Line.replaceAll("`", ILNoAlignmentCorrection)
-      result[k].Line = ILNoAlignment + result[k].Line
+      //result[k].Line = ILNoAlignment + result[k].Line
    }
    return [i, inputs];
 }
 exports.beautifySignalAssignment2 = beautifySignalAssignment2;
 /*
-
+ 
 // this code supports multiple function calls in signal assignments, but removes the nice allignment of e.g. arrays
-
+ 
 function beautifyMultilineDefault(inputs, result, settings, startIndex, indent) {
    var start = startIndex
    var endIndex = getNextSymbolIndex(inputs, startIndex, ";")
@@ -1806,7 +1834,7 @@ function beautifyMultilineDefault(inputs, result, settings, startIndex, indent) 
             i--
             return i;
          }
-
+ 
       }
    }
 }
@@ -2107,7 +2135,7 @@ function countOpenBrackets(input) {
       if (input[j] === "(") {
          brackets = brackets + 1
          lastOpenBracket.push(j) // add a bracket level
-
+ 
       }
       if (input[j] === ")") {
          brackets = brackets - 1
@@ -2120,7 +2148,7 @@ function countOpenBrackets(input) {
             if (lastClosingBracket.length > 1) {
                lastClosingBracket = lastClosingBracket.slice(0, lastClosingBracket.length - 1) // remove the opening brackets position
             }
-
+ 
          }
       }
    }
@@ -2520,7 +2548,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          var start = result.length
          inputs[i] = inputs[i].replace(/\bREPORT\b/, "REPORT(") // add a bracket to make the magic happen
          __i = beautifyBrackets(inputs, result, settings, i, endIndex, indent, /(SEVERITY|;)/), i = __i[0], inputs = __i[1]
-         result[start].Line = result[start].Line.replace(/\bREPORT\(/, "REPORT ") // remove the bracket
+         result[start].Line = result[start].Line.replace(/\bREPORT\(/, "REPORT") // remove the bracket
          if (result[result.length - 1].Line.search(/\bSEVERITY\b/) > -1) {
             result[result.length - 1].Line = result[result.length - 1].Line.replaceAll(ILForceSpace, " ").trim() // correct the severity 
          }
