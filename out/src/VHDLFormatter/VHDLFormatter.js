@@ -11,6 +11,7 @@ var ILBackslash = "⨸";
 var ILForceSpace = "⨹";
 var ILSemicolon = "⨴";
 var ILNoAlignmentCorrection = "ª"
+var ILNoAlignment = "▒"
 var FormatMode;
 (function (FormatMode) {
    FormatMode[FormatMode["Default"] = 0] = "Default";
@@ -152,6 +153,7 @@ function EscapeComments(arr) {
                }
                else {
                   isInComment = true;
+                  //leadingSpace = commentStartIndex
                   comments.push(line.substr(commentStartIndex));
                   arr[i] = line.substr(0, commentStartIndex) + ILCommentPrefix + count;
                   count++;
@@ -672,6 +674,7 @@ function beautify(input, settings) {
 
    input = input.replace(new RegExp(ILForceSpace, "g"), " ")
    input = input.replace(new RegExp(ILNoAlignmentCorrection, "g"), " ")
+   input = input.replace(new RegExp(ILNoAlignment, "g"), "")
    if (settings.AddNewLine && !input.endsWith(settings.EndOfLine)) {
       input += settings.EndOfLine;
    }
@@ -906,6 +909,7 @@ function beautifyFunctionDeclaration(inputs, result, settings, startIndex, paren
    for (var k = startResult; k < result.length; k++) {
       result[k].Line = result[k].Line.replaceAll("`", ILNoAlignmentCorrection)
    }
+   result[startResult].Line = ILNoAlignment + result[startResult].Line
    var new_indent
    if (((inputs[i].indexOf(";") > -1) || (inputs[i].indexOf(ILSemicolon) > -1)) && (endWord.toString().indexOf("bIS") < 0)) {
       //function declaration, so no indent and return to continue parsing
@@ -928,15 +932,16 @@ function AlignSigns(result, startIndex, endIndex, mode, indentation) {
    // except ) at the beginning of the line is to break allignment for signals with multiline defaults
    // except procedure or function at the beginning of the line is to prevent that arguments of procs or functions are aliggned with signals above+
    // except entity is added to prevent that the colons in u_entity : entity work.jfkdfjk; are aligned in case of entities without ports
-   AlignSign_(result, startIndex, endIndex, ":", mode, "(^(?!ATTRIBUTE)\\bIS\\b|^\\s*\\)|(^\\s*PROCEDURE)|(^\\s*FUNCTION)|(.*:\\s*\\bENTITY\\b))", indentation);
+   AlignSign2_(result, startIndex, endIndex, ":", mode, "(^(?!ATTRIBUTE)\\bIS\\b|^\\s*\\)|(^\\s*PROCEDURE)|(^\\s*FUNCTION)|(.*:\\s*\\bENTITY\\b))", indentation);
    // exlude when and if since the smaller than or equal operator is the same as the assignment operator, but we don't want to align on that
-   AlignSign_(result, startIndex, endIndex, "(:|<)=", mode, "(^\(?!.*;\).*\\b(when|IF|ELSIF|ASSERT)\\b.*|^\\s*\\))", indentation);
-   AlignSign_(result, startIndex, endIndex, "=>", mode, "\r\r", indentation);
+   AlignSign2_(result, startIndex, endIndex, "(:|<)=", mode, "(^\(?!.*;\).*\\b(when|IF|ELSIF|ASSERT)\\b.*|^\\s*\\))", indentation);
+   AlignSign2_(result, startIndex, endIndex, "=>", mode, "\r\r", indentation);
    //AlignSign_(result, startIndex, endIndex, "<=", mode);
    //AlignSign_(result, startIndex, endIndex, "<=", mode);
-   AlignSign_(result, startIndex, endIndex, "@@comments", mode, "\\bWHEN\\b", indentation);
+   AlignSign2_(result, startIndex, endIndex, "@@comments", mode, "\\bWHEN\\b", indentation);
 }
 exports.AlignSigns = AlignSigns;
+
 function AlignSign_(result, startIndex, endIndex, symbol, mode, exclude, indentation, ignoreNoAlign = false) {
    var maxSymbolIndex = -1;
    var symbolIndices = {};
@@ -1057,6 +1062,91 @@ function AlignSign_(result, startIndex, endIndex, symbol, mode, exclude, indenta
 }
 
 
+function AlignSign2_(result, startIndex, endIndex, symbol, mode, exclude, indentation, ignoreNoAlign = false) {
+   var maxSymbolIndex = -1;
+   var symbolIndices = {};
+   var startLine = startIndex;
+   var labelAndKeywords = [
+      "([\\w\\s]*:(\\s)*\\bPROCESS\\b)",
+      "([\\w\\s]*:(\\s)*POSTPONED PROCESS)",
+      "([\\w\\s]*:\\s*$)",
+      "([\\w\\s]*:.*\\s+GENERATE)",
+      "\\b(PROCEDURE|FUNCTION)\\b\\s+[\\w]+\\s*\\(.*;"   // to filter out one line procedure/functions declarations containing default values
+   ];
+   var labelAndKeywordsStr = labelAndKeywords.join("|");
+   var labelAndKeywordsRegex = new RegExp("(" + labelAndKeywordsStr + ")([^\\w]|$)");
+   var colonIndex = 0
+   var maxIndent = 0
+   var forcedBlockEnd = false
+   var noAlign = -1
+   var skipLine = false
+   if (ignoreNoAlign) {
+      noAlign = 1e6
+   }
+   if (typeof exclude === 'undefined') {
+      exclude = /\r\r/
+   }
+   var prev_level = 0
+   var level = 0
+   var do_align = false
+   var no_align = false
+   var prev_no_align = false
+   for (var i = startIndex; i <= endIndex; i++) {
+      // mask out (other => <whatever>) constructs           
+      var line = result[i].Line.replaceAll(/\(OTHERS => /g, "OOOOOOOOOOO");
+      prev_level = level
+      level = result[i].Indent
+      prev_no_align = no_align
+      if ((line.trim().indexOf(ILNoAlignmentCorrection) === 0) || (line.trim().indexOf(ILNoAlignment))) {
+         //skip already aligned multiline stuff
+         do_align = true;
+      }
+      else {
+         if (((symbol == ":") || (symbol == "(:|<)=")) && line.regexStartsWith(labelAndKeywordsRegex)) {
+            // prevent alignment signs in processes, procedures, functions and ifs to be aligned with others
+            // or when the identation changed
+            forcedBlockEnd = true;
+         }
+         // why is this????
+         var regex = new RegExp("(?<=([\\s\\S\\\\]|^))" + symbol + "(?=[^=]+|$)");
+         /*if (line.regexCount(regex) > 1) {
+             continue;
+         }*/
+         var colonIndex = line.regexIndexOf(regex);
+
+         if (colonIndex > 0 && (line.search(exclude) < 0) && !forcedBlockEnd) {
+            //the WHEN lines in a case do
+            maxSymbolIndex = Math.max(maxSymbolIndex, colonIndex);
+            maxIndent = Math.max(maxIndent, result[i].Indent);
+            symbolIndices[i] = colonIndex;
+
+         }
+         else if ((mode != "local" && !line.startsWith(ILCommentPrefix) && line.length != 0)
+            || (mode == "local")) {
+            do_align = true
+         }
+
+      }
+      if ((level != prev_level) || (do_align)) {
+         if (startLine < i - 1) // if cannot find the symbol, a block of symbols ends
+         {
+            AlignSign(result, startLine, i - 1, symbol, maxSymbolIndex, symbolIndices, maxIndent, indentation.length);
+         }
+         maxSymbolIndex = -1;
+         symbolIndices = {};
+         startLine = i;
+         maxIndent = -1
+         forcedBlockEnd = false
+      }
+   }
+   if (startLine < endIndex) // if cannot find the symbol, a block of symbols ends
+   {
+      AlignSign(result, startLine, endIndex, symbol, maxSymbolIndex, symbolIndices, maxIndent, indentation.length);
+   }
+}
+
+
+
 function AlignSign(result, startIndex, endIndex, symbol, maxSymbolIndex, symbolIndices, maxIndent, indentation) {
    if (maxSymbolIndex === void 0) { maxSymbolIndex = -1; }
    if (symbolIndices === void 0) { symbolIndices = {}; }
@@ -1153,7 +1243,9 @@ function beautifyMultilineIf2(inputs, result, settings, startIndex, indent) {
    if (elsif) {
       indent--
    }
+   var startResult = result.length
    var _i = beautifyBrackets(inputs, result, settings, startIndex, endIndex, indent, /(THEN|GENERATE)/, false), i = _i[0], inputs = _i[1]
+   result[startResult].Line = ILNoAlignment + result[startResult].Line
 
    var _c = beautify3(inputs, result, settings, i + 1, indent + 1, endIndex), i = _c[0], endIndex = _c[1], inputs = _c[2];
    return [i, endIndex, inputs]
