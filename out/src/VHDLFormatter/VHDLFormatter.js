@@ -4,6 +4,7 @@ exports.RemoveAsserts = exports.ApplyNoNewLineAfter = exports.beautify3 = export
 var isTesting = false;
 var ILEscape = "@@";
 var ILCommentPrefix = ILEscape + "comments";
+var ILBlockCommentPrefix = ILEscape + "commentsb";
 var ILIndentedReturnPrefix = ILEscape;
 var ILQuote = "⨵";
 var ILSingleQuote = "⦼";
@@ -129,7 +130,7 @@ function EscapeComments(arr) {
       }
    }
    var isInComment = false;
-   var commentRegex = new RegExp("(?<=" + ILCommentPrefix + "[\\d]+).");
+   var commentRegex = new RegExp("(?<=" + ILCommentPrefix + "[b]*[\\d]+).");
    for (var i = 0; i < arr.length; i++) {
       var commentStartIndex = 0;
       var hasComment = true;
@@ -144,6 +145,7 @@ function EscapeComments(arr) {
                   commentEndInlineIndex = commentEndIndex + 2;
                   isInComment = false;
                   comments.push(line.substring(commentStartIndex, commentEndInlineIndex));
+                  // start and end of block index on the same line => just a normal comment
                   arr[i] = line.substr(0, commentStartIndex) + ILCommentPrefix + count + line.substr(commentEndInlineIndex);
                   count++;
                   hasComment = true;
@@ -154,8 +156,15 @@ function EscapeComments(arr) {
                else {
                   isInComment = true;
                   //leadingSpace = commentStartIndex
-                  comments.push(line.substr(commentStartIndex));
-                  arr[i] = line.substr(0, commentStartIndex) + ILCommentPrefix + count;
+                  var m = line.match(/^\s*\/\*/) // comment starts at the start of a line
+                  if (m) {
+                     // add leading spaces to the comment itself
+                     comments.push(line.substr(commentStartIndex - m[0].length + 2).replaceAll(" ", ILForceSpace));
+                     arr[i] = line.substr(0, commentStartIndex) + ILBlockCommentPrefix + count;
+                  } else {
+                     comments.push(line.substr(commentStartIndex).replaceAll(" ", ILForceSpace));
+                     arr[i] = line.substr(0, commentStartIndex) + ILCommentPrefix + count;
+                  }
                   count++;
                   hasComment = false;
                }
@@ -175,14 +184,14 @@ function EscapeComments(arr) {
             }
             if (commentEndIndex >= 0) {
                isInComment = false;
-               comments.push(line.substr(0, commentEndIndex + 2));
-               arr[i] = ILCommentPrefix + count + line.substr(commentEndIndex + 2);
+               comments.push(line.substr(0, commentEndIndex + 2).replaceAll(" ", ILForceSpace));
+               arr[i] = ILBlockCommentPrefix + count + line.substr(commentEndIndex + 2);
                count++;
                hasComment = true;
             }
             else {
-               comments.push(line);
-               arr[i] = ILCommentPrefix + count;
+               comments.push(line.replaceAll(" ", ILForceSpace));
+               arr[i] = ILBlockCommentPrefix + count;
                count++;
                hasComment = false;
             }
@@ -655,6 +664,7 @@ function beautify(input, settings) {
    input = replaceEscapedWords(input, quotes, ILQuote);
    input = replaceEscapedWords(input, singleQuotes, ILSingleQuote);
    input = replaceEscapedComments(input, comments, ILCommentPrefix);
+   input = replaceEscapedBlockComments(input, comments, ILBlockCommentPrefix);
    input = replaceEscapedWords(input, backslashes, ILBackslash);
    //input = replaceEscapedWords(input, others, ILForceSpace);
    input = input.replace(new RegExp(ILSemicolon, "g"), ";");
@@ -716,6 +726,14 @@ function replaceEscapedWords(input, arr, prefix) {
    }
    return input;
 }
+function replaceEscapedBlockComments(input, arr, prefix) {
+   var noLeadingSpaces = 0
+   for (var i = 0; i < arr.length; i++) {
+      input = input.replace(new RegExp(` *${prefix}${i}\\b`), " ".repeat(noLeadingSpaces) + arr[i]);
+   }
+   return input;
+}
+
 function replaceEscapedComments(input, arr, prefix) {
    for (var i = 0; i < arr.length; i++) {
       input = input.replace(prefix + i, arr[i]);
@@ -903,13 +921,13 @@ function beautifyFunctionDeclaration(inputs, result, settings, startIndex, paren
       result[k].Line = result[k].Line.replaceAll(ILNoAlignmentCorrection, "`")
    }
    //align on assignment signs to get it clean. Is not done later due to the ILNoAlignmentCorrection
-   AlignSign_(result, startResult, result.length - 1, ":", "global", "\r\r", settings.Indentation);
-   AlignSign_(result, startResult, result.length - 1, ":=", "global", "\r\r", settings.Indentation);
-   AlignSign_(result, startResult, result.length - 1, "@@comments", "global", "\\bWHEN\\b", settings.Indentation);
+   AlignSign2_(result, startResult, result.length - 1, ":", "global", "\r\r", settings.Indentation);
+   AlignSign2_(result, startResult, result.length - 1, ":=", "global", "\r\r", settings.Indentation);
+   AlignSign2_(result, startResult, result.length - 1, "@@comments", "global", "\\bWHEN\\b", settings.Indentation);
    for (var k = startResult; k < result.length; k++) {
       result[k].Line = result[k].Line.replaceAll("`", ILNoAlignmentCorrection)
+      result[k].Line = ILNoAlignment + result[k].Line
    }
-   result[startResult].Line = ILNoAlignment + result[startResult].Line
    var new_indent
    if (((inputs[i].indexOf(";") > -1) || (inputs[i].indexOf(ILSemicolon) > -1)) && (endWord.toString().indexOf("bIS") < 0)) {
       //function declaration, so no indent and return to continue parsing
@@ -1078,11 +1096,7 @@ function AlignSign2_(result, startIndex, endIndex, symbol, mode, exclude, indent
    var colonIndex = 0
    var maxIndent = 0
    var forcedBlockEnd = false
-   var noAlign = -1
-   var skipLine = false
-   if (ignoreNoAlign) {
-      noAlign = 1e6
-   }
+
    if (typeof exclude === 'undefined') {
       exclude = /\r\r/
    }
@@ -1095,9 +1109,30 @@ function AlignSign2_(result, startIndex, endIndex, symbol, mode, exclude, indent
       // mask out (other => <whatever>) constructs           
       var line = result[i].Line.replaceAll(/\(OTHERS => /g, "OOOOOOOOOOO");
       prev_level = level
+      if (mode != "local") {
+         var m = line.match(new RegExp("^([`]+|`*[@]{2}.*)$"))
+         if (m) {
+            if (m.index === 0) {
+               continue
+            }
+         }
+      }
       level = result[i].Indent
+      if (prev_level != level) {
+         prev_level = level
+         if (startLine < i - 1) // if cannot find the symbol, a block of symbols ends
+         {
+            AlignSign(result, startLine, i - 1, symbol, maxSymbolIndex, symbolIndices, maxIndent, indentation.length);
+         }
+         maxSymbolIndex = -1;
+         symbolIndices = {};
+         startLine = i;
+         maxIndent = -1
+         forcedBlockEnd = false
+         do_align = false
+      }
       prev_no_align = no_align
-      if ((line.trim().indexOf(ILNoAlignmentCorrection) === 0) || (line.trim().indexOf(ILNoAlignment))) {
+      if ((line.trim().indexOf(ILNoAlignmentCorrection) === 0) || (line.trim().indexOf(ILNoAlignment) === 0)) {
          //skip already aligned multiline stuff
          do_align = true;
       }
@@ -1113,7 +1148,6 @@ function AlignSign2_(result, startIndex, endIndex, symbol, mode, exclude, indent
              continue;
          }*/
          var colonIndex = line.regexIndexOf(regex);
-
          if (colonIndex > 0 && (line.search(exclude) < 0) && !forcedBlockEnd) {
             //the WHEN lines in a case do
             maxSymbolIndex = Math.max(maxSymbolIndex, colonIndex);
@@ -1127,7 +1161,7 @@ function AlignSign2_(result, startIndex, endIndex, symbol, mode, exclude, indent
          }
 
       }
-      if ((level != prev_level) || (do_align)) {
+      if (do_align) {
          if (startLine < i - 1) // if cannot find the symbol, a block of symbols ends
          {
             AlignSign(result, startLine, i - 1, symbol, maxSymbolIndex, symbolIndices, maxIndent, indentation.length);
@@ -1137,6 +1171,7 @@ function AlignSign2_(result, startIndex, endIndex, symbol, mode, exclude, indent
          startLine = i;
          maxIndent = -1
          forcedBlockEnd = false
+         do_align = false
       }
    }
    if (startLine < endIndex) // if cannot find the symbol, a block of symbols ends
@@ -1192,7 +1227,7 @@ function beautifyCaseBlock(inputs, result, settings, startIndex, indent, indenta
       }
    }
    if (endCase > -1) {
-      AlignSign_(result, startIndex, endCase, "=>", "global", "\\r\\\r", indentation);
+      AlignSign2_(result, startIndex, endCase, "=>", "global", "\\r\\\r", indentation);
    }
 
    return [i, inputs];
@@ -1245,7 +1280,9 @@ function beautifyMultilineIf2(inputs, result, settings, startIndex, indent) {
    }
    var startResult = result.length
    var _i = beautifyBrackets(inputs, result, settings, startIndex, endIndex, indent, /(THEN|GENERATE)/, false), i = _i[0], inputs = _i[1]
-   result[startResult].Line = ILNoAlignment + result[startResult].Line
+   for (var j = startResult; j < result.length; j++) {
+      result[startResult].Line = ILNoAlignment + result[startResult].Line
+   }
 
    var _c = beautify3(inputs, result, settings, i + 1, indent + 1, endIndex), i = _c[0], endIndex = _c[1], inputs = _c[2];
    return [i, endIndex, inputs]
@@ -1715,10 +1752,11 @@ function beautifySignalAssignment2(inputs, result, settings, startIndex, indent)
       result[k].Line = result[k].Line.replaceAll(ILNoAlignmentCorrection, "`")
    }
    //align on assignment signs to get it clean. Is not done later due to the ILNoAlignmentCorrection
-   AlignSign_(result, startResult, result.length - 1, "=>", "global", "\r\r", settings.Indentation);
-   AlignSign_(result, startResult, result.length - 1, "@@comments", "global", "\\bWHEN\\b", settings.Indentation);
+   AlignSign2_(result, startResult, result.length - 1, "=>", "global", '\r\r', settings.Indentation);
+   AlignSign2_(result, startResult, result.length - 1, "@@comments", "global", "\\bWHEN\\b", settings.Indentation);
    for (var k = startResult; k < result.length; k++) {
       result[k].Line = result[k].Line.replaceAll("`", ILNoAlignmentCorrection)
+      result[k].Line = ILNoAlignment + result[k].Line
    }
    return [i, inputs];
 }
@@ -2348,6 +2386,7 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
          _g = beautifyPortGenericBlock(inputs, result, settings, i, endIndex, indent, "GENERIC"), i = _g[0], endIndex = _g[1];
          if (pack > -1) {
             indent--;
+            return [i, endIndex, inputs];
          }
          errorCheck(inputs, result, i, a)
          continue;
@@ -2426,10 +2465,11 @@ function beautify3(inputs, result, settings, startIndex, indent, endIndex) {
             for (var k = startResult; k < result.length; k++) {
                result[k].Line = result[k].Line.replaceAll(ILNoAlignmentCorrection, "`")
             }
-            AlignSign_(result, startResult, result.length - 1, "=>", "global", "\r\r", settings.Indentation);
-            AlignSign_(result, startResult, result.length - 1, "@@comments", "global", "\\bWHEN\\b", settings.Indentation);
+            AlignSign2_(result, startResult, result.length - 1, "=>", "global", "\r\r", settings.Indentation);
+            AlignSign2_(result, startResult, result.length - 1, "@@comments", "global", "\\bWHEN\\b", settings.Indentation);
             for (var k = startResult; k < result.length; k++) {
                result[k].Line = result[k].Line.replaceAll("`", ILNoAlignmentCorrection)
+               result[k].Line = ILNoAlignment + result[k].Line
             }
 
             continue;
