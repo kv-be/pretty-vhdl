@@ -562,11 +562,11 @@ function beautify(input, settings) {
    input = input.replace(/(?<=[a-z0-9A-Z])[ ]?((=>|<=|!=|:=|\*\*){1})[ ]?(?=[a-z0-9A-Z])/g, ' $1 '); // space after operator + - / * & = > <
    input = input.replace(/(\d+e) +([+\-]) +(\d+)/g, '$1$2$3'); // fix exponential notation format broken by previous step
    input = input.replace(/[ ]?([,])[ ]?/g, '$1 '); //space after a comma
-   input = input.replace(/[ ]?(['"])(THEN)/g, '$1 $2');
+   input = input.replace(/[ ]?(['"])\b(THEN)/g, '$1 $2');
    //input = input.replace(/[ ]?(\?)?[ ]?(<|:|>|\/)?[ ]+(=)?[ ]?/g, ' $1$2$3 ');
    input = input.replace(/(IF)[ ]?([\(\)])/g, '$1 $2');
-   input = input.replace(/([\(\)])[ ]?(THEN)/gi, '$1 $2');
-   input = input.replace(/(^|[\(\)])[ ]?(AND|OR|XOR|XNOR)[ ]*([\(])/g, '$1 $2 $3');
+   input = input.replace(/([\(\)])[ ]?\b(THEN)/gi, '$1 $2');
+   input = input.replace(/(^|[\(\)])[ ]?\b(AND|OR|XOR|XNOR)\b[ ]*([\(])/g, '$1 $2 $3');
    //input = input.replace(/(?<=[a-z0-9A-Z])[ ]?(=>|<=|:=)[ ]?(?=[a-z0-9A-Z])/g, " $1 ");
    //input = input.replace(/ ([\-\*\/=+<>])[ ]*([\-\*\/=+<>]) /g, " $1$2 ");
    //input = input.replace(/\r\n[ \t]+--\r\n/g, "\r\n");
@@ -584,12 +584,12 @@ function beautify(input, settings) {
    input = input.replace(/([,|]) +([+\-]) +(\w)/g, '$1 $2$3'); // `1, - 2)` -> `1, -2)`
    input = input.replace(/(\() +([+\-]) +(\w)/g, '$1$2$3'); // `( - 2)` -> `(-2)`
 
-   input = input.replace(/(\s*type\s*.*?\s+is)(.*?)\r*\n*\s*\brecord\b/gi, "$1 RECORD$2"); // type t_test is <<record on the next line>>
+   input = input.replace(/(\s*\btype\s*.*?\s+is)(.*?)\r*\n*\s*\brecord\b/gi, "$1 RECORD$2"); // type t_test is <<record on the next line>>
 
    input = input.replace(/(\s+port\s+map)\s*([^\(]*)\n\s*\(/gi, "$1 \($2"); // port with bracket on next line
    input = input.replace(/(\s+port)\s*([^\(]*)\r\n\s*\(/gi, "$1 \($2"); // port with bracket on next line
-   input = input.replace(/WHEN *(\S+) *=> *([^;]+@@.*$)/gi, "WHEN $1 =>\r\n$2") // when followed by something and ending in a comment
-   input = input.replace(/WHEN *(\S+) *=> *((?!.*@@)[^;]+$)/gi, "WHEN $1 =>\r\n$2") // when followed by not a comment
+   input = input.replace(/\bWHEN *(\S+) *=> *([^;]+@@.*$)/gi, "WHEN $1 =>\r\n$2") // when followed by something and ending in a comment
+   input = input.replace(/\bWHEN *(\S+) *=> *((?!.*@@)[^;]+$)/gi, "WHEN $1 =>\r\n$2") // when followed by not a comment
    input = input.replace(/\bREPORT\b(\S+)/gi, "REPORT $1") // when followed by not a comment
 
    // line starting with procedure and not containing IS
@@ -613,8 +613,8 @@ function beautify(input, settings) {
    //    ^ (? !\b(function| procedure)) (.*\s *\bis\b)
 
    input = input.replace(/(.*;)(.*;)/gi, "$1\r\n$2"); // one executable statement per line
-   input = input.replace(/\s*(signal\s+\w+)\s*,\s*(\w+)\s*:\s*(.*)/gi, "\r\n$1 : $3\r\nsignal $2 : $3"); // 2 signals defined on the same line
-   input = input.replace(/\s*(variable\s+\w+)\s*,\s*(\w+)\s*:\s*(.*)/gi, "\r\n$1 : $3\r\nvariable $2 : $3"); // 2 signals defined on the same line
+   input = input.replace(/\s*\b(signal\s+\w+)\s*,\s*(\w+)\s*:\s*(.*)/gi, "\r\n$1 : $3\r\nsignal $2 : $3"); // 2 signals defined on the same line
+   input = input.replace(/\s*\b(variable\s+\w+)\s*,\s*(\w+)\s*:\s*(.*)/gi, "\r\n$1 : $3\r\nvariable $2 : $3"); // 2 signals defined on the same line
    input = input.replace(/(with\s+\S+\s+\bselect\b)([\s\S\n\r]+?)/gi, "$1\r\n$2");
    input = input.replace(/\r\n\r\n\r\n/g, '\r\n\r\n'); // remove double empty lines
    input = fix_closing_brackets(input);
