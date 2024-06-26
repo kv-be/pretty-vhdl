@@ -552,7 +552,7 @@ function beautify(input, settings) {
       ApplyNoNewLineAfter(arr, newLineSettings.noNewLineAfter);
       input = arr.join("\r\n");
    }
-   input = input.replace(/(.*)IS\(/g, "$1 IS (") // make sure there is a space between is and ()
+   input = input.replace(/(.*)\bIS\(/g, "$1 IS (") // make sure there is a space between is and ()
    input = input.replace(/([a-zA-Z0-9\); ])\);(@@comments[0-9]+)?@@end/g, '$1\r\n);$2@@end');
    input = input.replace(/(\S+)<=(\S+)/g, '$1 <= $2')
    input = input.replace(/(\S+):=(\S+)/g, '$1 := $2')
